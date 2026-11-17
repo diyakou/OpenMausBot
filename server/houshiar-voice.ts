@@ -22,10 +22,12 @@ export class HoushiarVoice {
   private active = false;
   private closed = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private readonly emit: (event: VoiceEvent) => void;
 
-  constructor(key: string, private readonly emit: (event: VoiceEvent) => void, open: SocketFactory = (url, secret) =>
+  constructor(key: string, emit: (event: VoiceEvent) => void, open: SocketFactory = (url, secret) =>
     new WebSocket(url, { headers: { Authorization: `Bearer ${secret}` }, maxPayload: MAX_EVENT_CHARS })) {
     if (!key.trim() || /[\r\n]/.test(key)) throw new Error("Invalid voice credential");
+    this.emit = emit;
     this.socket = open(VOICE_URL, key);
     this.socket.onmessage = (event) => this.receive(event.data);
     this.socket.onerror = () => this.fail("connection");
