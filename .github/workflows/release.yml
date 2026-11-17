@@ -645,11 +645,11 @@ jobs:
           echo "canonical asset count: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
 
       - name: Mirror the same draft for installed legacy clients
-        if: ${{ env.RELEASES_PAT != '' }}
         env:
           GH_TOKEN: ${{ secrets.RELEASES_PAT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          test -n "$GH_TOKEN" || { echo "RELEASES_PAT missing; skipping legacy mirror"; exit 0; }
           tag="v$VERSION"
           ensure_draft() {
             local repo=$1
@@ -680,12 +680,12 @@ jobs:
           echo "legacy asset count: $(gh release view "$tag" --repo milind-soni/openmausbot-releases --json assets --jq '.assets | length')"
 
       - name: Prove release drafts contain the exact staged bytes
-        if: ${{ env.RELEASES_PAT != '' }}
         env:
           CANONICAL_TOKEN: ${{ github.token }}
           LEGACY_TOKEN: ${{ secrets.RELEASES_PAT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          test -n "$LEGACY_TOKEN" || { echo "RELEASES_PAT missing; skipping legacy verification"; exit 0; }
           node --input-type=module - "$VERSION" <<'EOF'
           import { createHash } from "node:crypto";
           import { execFileSync } from "node:child_process";
