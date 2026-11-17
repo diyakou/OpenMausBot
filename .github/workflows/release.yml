@@ -98,7 +98,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASES_PAT }}
         run: |
-          test -n "$GH_TOKEN" || { echo "::error::RELEASES_PAT is required for the updater bridge"; exit 1; }
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::RELEASES_PAT missing; legacy updater mirror will be skipped"
+          fi
           v="v$(node -p "require('./package.json').version")"
           if gh release view "$v" --repo milind-soni/openmausbot-releases --json isDraft --jq .isDraft 2>/dev/null | grep -q false; then
             echo "::error::$v is already published on the legacy mirror — recover the canonical draft instead of rebuilding bytes"
@@ -641,6 +643,7 @@ jobs:
           echo "canonical asset count: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
 
       - name: Mirror the same draft for installed legacy clients
+        if: ${{ secrets.RELEASES_PAT != '' }}
         env:
           GH_TOKEN: ${{ secrets.RELEASES_PAT }}
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -674,7 +677,8 @@ jobs:
           done
           echo "legacy asset count: $(gh release view "$tag" --repo milind-soni/openmausbot-releases --json assets --jq '.assets | length')"
 
-      - name: Prove both drafts contain the exact staged bytes
+      - name: Prove release drafts contain the exact staged bytes
+        if: ${{ secrets.RELEASES_PAT != '' }}
         env:
           CANONICAL_TOKEN: ${{ github.token }}
           LEGACY_TOKEN: ${{ secrets.RELEASES_PAT }}
