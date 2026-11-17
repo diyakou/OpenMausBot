@@ -7,7 +7,7 @@ exact merge commit. Review and publish the draft when it is ready.
 
 The existing **Actions → Release → Run workflow** button remains available for
 reruns and recovery. It
-builds macOS (arm64 + x64, signed, notarized, stapled), Windows, and Ubuntu
+builds macOS (arm64 + x64, unsigned), Windows, and Ubuntu
 from a single pinned commit, verifies every artifact the way a user would
 receive it, and assembles the canonical draft in
 [OpenMausBot releases](https://github.com/milind-soni/OpenMausBot/releases).
@@ -219,3 +219,11 @@ notarize with the local keychain profile (`xcrun notarytool submit …
 to both repositories, publish and verify the canonical release before the
 legacy mirror, and always verify the published bytes against the published feed
 by downloading them back.
+
+
+macOS builds currently require no Apple Developer ID certificate or notarization
+credentials. `mac.identity: null`, disabled certificate discovery, and
+`dmg.sign: false` keep the release independent of the runner's keychain. The
+speech helper retains its local ad-hoc signature for macOS audio entitlements;
+this uses no certificate or Apple account. Packaged-server, native architecture,
+updater-feed and artifact integrity checks still run.

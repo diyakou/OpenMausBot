@@ -1,4 +1,4 @@
-# One-button releases: builds macOS (arm64 + x64, signed, notarized, stapled),
+# One-button releases: builds macOS (arm64 + x64, unsigned),
 # Windows, and Ubuntu from ONE commit, assembles a complete draft in this
 # repository with verified feeds, and mirrors it to the legacy releases repo
 # so already-installed builds can cross the updater migration safely.
@@ -6,12 +6,9 @@
 # Every gate below exists because its absence shipped (or nearly shipped) a
 # broken build from a laptop:
 #   - clean output dirs        -> 0.1.15 "app is damaged" (stale dist/ broke the seal)
-#   - codesign gate BEFORE     -> notarization ACCEPTS invalid signatures
 #   - packaged-server smoke    -> 0.1.24 died on launch (unbundled zod import)
 #   - proxy-path probe         -> the 0.1.24 fix broke every helper while
 #                                 /api/health stayed green
-#   - staple, THEN hash        -> stapling rewrites bytes; stale feeds make
-#                                 electron-updater reject every update
 #   - blockmap regeneration    -> stale differential maps waste every updater's
 #                                 bandwidth silently
 #   - assemble-then-publish    -> 0.1.24 sat as an invisible draft; a mac-only
@@ -148,7 +145,7 @@ jobs:
         run: node scripts/release-ci.mjs
 
   mac:
-    name: macOS arm64 + x64 (sign, notarize, staple)
+    name: macOS arm64 + x64 (unsigned)
     needs: prepare
     if: needs.prepare.outputs.should_release == 'true'
     runs-on: macos-15
@@ -167,27 +164,11 @@ jobs:
       - name: Clean generated output
         run: rm -rf dist dist-server dist-native release
 
-      - name: Import the Developer ID certificate into a throwaway keychain
-        env:
-          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
-          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-        run: |
-          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
-          KEYCHAIN_PASSWORD="$(uuidgen)"
-          echo "$MAC_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security import "$RUNNER_TEMP/cert.p12" -P "$MAC_CERT_PASSWORD" -A \
-            -t cert -f pkcs12 -k "$KEYCHAIN"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security list-keychains -d user -s "$KEYCHAIN" login.keychain
-          rm "$RUNNER_TEMP/cert.p12"
-
       - name: Package both architectures
         # macos-15 runners have 7 GB, so Node's default heap stops near 2 GB; the server typecheck now needs a little more.
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm package:mac
 
       - name: "Gate: both packaged apps use the canonical updater feed"
@@ -199,31 +180,22 @@ jobs:
             grep -Eq '^repo: OpenMausBot$' "$update" || { echo "::error::wrong update repo in $update"; exit 1; }
           done
 
-      - name: "Gate: the signature must verify BEFORE notarization"
+      - name: "Gate: bundled executables and licenses exist"
         run: |
           for app in release/mac-arm64/HoshAgent.app release/mac/HoshAgent.app; do
-            codesign --verify --deep --strict "$app"
             bin="$app/Contents/Resources/cloudflared/cloudflared"
             test -x "$bin" || { echo "::error::missing executable $bin"; exit 1; }
             test -f "$app/Contents/Resources/licenses/cloudflared-LICENSE.txt" \
               || { echo "::error::missing cloudflared license in $app"; exit 1; }
             test -f "$app/Contents/Resources/licenses/cloudflared-README.md" \
               || { echo "::error::missing cloudflared provenance in $app"; exit 1; }
-            codesign --verify --strict "$bin"
-            app_team=$(codesign -dv --verbose=4 "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-            bin_team=$(codesign -dv --verbose=4 "$bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-            test -n "$app_team" && test "$bin_team" = "$app_team" || {
-              echo "::error::cloudflared is not signed by the app's Developer ID team in $app"; exit 1; }
             for browser_bin in "$app/Contents/Resources/browser-engine/agent-browser" "$app/Contents/Resources/browser-engine/chrome/"*/chrome-headless-shell; do
               test -x "$browser_bin"
-              codesign --verify --strict "$browser_bin"
-              browser_team=$(codesign -dv --verbose=4 "$browser_bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-              test "$browser_team" = "$app_team" || { echo "::error::browser runtime has the wrong signing team"; exit 1; }
             done
             echo "ok: $app"
           done
 
-      - name: "Gate: signed native browser works with an empty home"
+      - name: "Gate: native browser works with an empty home"
         run: |
           case "$(node -p process.arch)" in
             arm64) resources="$PWD/release/mac-arm64/HoshAgent.app/Contents/Resources" ;;
@@ -255,7 +227,7 @@ jobs:
           console.log(`ok: ${Object.keys(SPAWNED_PROXIES).length} proxies resolve in ${server}`);
           EOF
             # the speech helper is a nested signed .app and stays universal
-            speech="$res/HoshAgent Speech.app/Contents/MacOS/speech-helper"
+            speech="$res/OpenMausBot Speech.app/Contents/MacOS/speech-helper"
             lipo -archs "$speech" | grep -q "x86_64" || { echo "::error::$speech lacks x86_64"; exit 1; }
             lipo -archs "$speech" | grep -q "arm64" || { echo "::error::$speech lacks arm64"; exit 1; }
             # every other native payload carries only this app's own CPU slice
@@ -273,64 +245,12 @@ jobs:
             fi
           done
 
-      - name: Notarize all four artifacts
-        env:
-          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      - name: Regenerate blockmaps and feed
         run: |
-          trap 'rm -f "$RUNNER_TEMP/notary.p8"' EXIT
-          echo "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/notary.p8"
-          notary() {
-            xcrun notarytool "$@" \
-              --key "$RUNNER_TEMP/notary.p8" \
-              --key-id "$APPLE_API_KEY_ID" \
-              --issuer "$APPLE_API_ISSUER_ID"
-          }
-          for f in release/*.dmg release/*.zip; do
-            # notarytool exits non-zero when Apple refuses the request (an agreement to accept, a bad key): keep its
-            # output and exit code so the step says why instead of ending in silence
-            rc=0
-            out=$(notary submit "$f" --wait 2>&1) || rc=$?
-            if [ "$rc" -eq 0 ] && echo "$out" | grep -q "status: Accepted"; then
-              echo "$out" | tail -2
-              continue
-            fi
-            echo "$out"
-            echo "::error::notarization not Accepted for $f (notarytool exit code $rc)"
-            id=$(echo "$out" | sed -n 's/^ *id: *\([0-9A-Fa-f-]\{1,\}\) *$/\1/p' | head -1)
-            if [ -n "$id" ]; then
-              echo "notarytool log $id:"
-              notary log "$id" 2>&1 || echo "could not fetch the notarization log for $id"
-            fi
-            exit 1
-          done
-
-      - name: Staple, re-zip, regenerate blockmaps and the feed
-        run: |
-          # stapler fetches the ticket from Apple's CloudKit: the connection drops now and then (error 68), and a
-          # ticket can lag notarytool's Accepted verdict by a minute (error 65).
-          staple() {
-            for attempt in 1 2 3 4 5 6; do
-              xcrun stapler staple "$1" && return 0
-              echo "stapling $1 failed (attempt $attempt of 6); trying again in 30 s"
-              sleep 30
-            done
-            echo "::error::could not staple $1 after 6 attempts"
-            return 1
-          }
-          for f in release/HoshAgent-*-arm64.dmg release/HoshAgent-*-x64.dmg release/mac-arm64/HoshAgent.app release/mac/HoshAgent.app; do
-            staple "$f"
-          done
           v=$(node -p "require('./package.json').version")
-          rm -f "release/HoshAgent-$v-arm64.zip" "release/HoshAgent-$v-x64.zip"
-          ditto -c -k --sequesterRsrc --keepParent release/mac-arm64/HoshAgent.app "release/HoshAgent-$v-arm64.zip"
-          ditto -c -k --sequesterRsrc --keepParent release/mac/HoshAgent.app "release/HoshAgent-$v-x64.zip"
           node scripts/regenerate-blockmaps.mjs \
             "release/HoshAgent-$v-arm64.zip" "release/HoshAgent-$v-x64.zip" \
             "release/HoshAgent-$v-arm64.dmg" "release/HoshAgent-$v-x64.dmg"
-          # refreshes every hash from the post-staple bytes and refuses to
-          # finish unless the feed matches the files on disk
           node scripts/regenerate-mac-feed.mjs
 
       - name: Stable-named copies for the README's /latest/download links
