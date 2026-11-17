@@ -25,65 +25,7 @@ export const API_KEY_FLEET: InstanceConfigMap = {
 // Google retired Gemini CLI for the free/Pro/Ultra tiers on 2026-06-18; enterprise licences restore it with
 // `{"instances": {"gemini": {"driver": "geminiAgent"}}}`.
 export const DEFAULT_FLEET: InstanceConfigMap = {
-  houshiar: { driver: "openai-compat", displayName: "Houshiar", access: "api", config: { url: "https://api.houshiar-ai.ir/v1", apiKeyEnv: "HOUSHIAR_API_KEY" } },
-  grok: { driver: "grokAgent" },
-  kimi: { driver: "kimiAgent" },
-  droid: { driver: "droidAgent" },
-  cursor: { driver: "cursorAgent" },
-  githubCopilot: { driver: "copilotAgent" },
-  commandCode: { driver: "commandCodeAgent" },
-  kiro: { driver: "kiroAgent" },
-  devin: { driver: "devinAgent" },
-  claude: { driver: "claudeAgent" },
-  codex: { driver: "codex" },
-  chatgpt: { driver: "codex", displayName: "ChatGPT plan", config: { authMode: "chatgpt-plan" } },
-  antigravity: { driver: "antigravityAgent" },
-  opencodeGo: { driver: "opencodeGo" },
-  openaiCompat: { driver: "openai-compat" },
-  mistral: { driver: "mistral" },
-  mistralVibe: { driver: "mistralVibeAgent" },
-  cerebras: { driver: "cerebras" },
-  groq: { driver: "groq" },
-  greenference: { driver: "greenference" },
-  modelgo: { driver: "modelgo" },
-  meta: { driver: "meta" },
-  deepseek: { driver: "deepseekAgent" },
-  museCode: { driver: "museCode" },
-  ...API_KEY_FLEET,
-  qwen: { driver: "qwenAgent" },
-  hermes: { driver: "hermesAgent" },
-  cline: { driver: "clineAgent" },
-  pi: { driver: "piAgent" },
-  omp: { driver: "ompAgent" },
+  houshiar: { driver: "openai-compat", displayName: "Houshiar", access: "api", config: { url: "https://api.houshiar-ai.ir/v1", apiKeyEnv: "HOUSHIAR_API_KEY", provider: "" } },
 };
 
-const CUSTOM_ONLY = {
-  qwen: { driver: "qwenAgent" },
-  hermes: { driver: "hermesAgent" },
-  cline: { driver: "clineAgent" },
-  pi: { driver: "piAgent" },
-  omp: { driver: "ompAgent" },
-  mistralVibe: { driver: "mistralVibeAgent" },
-} as const;
-
-/** Added to a saved fleet that holds a product engine (claude, grok or codex), when it lacks them. */
-export const PRODUCT_FLEET_ADDITIONS = {
-  houshiar: DEFAULT_FLEET.houshiar!,
-  chatgpt: { driver: "codex", displayName: "ChatGPT plan", config: { authMode: "chatgpt-plan" } },
-  cursor: { driver: "cursorAgent" },
-  githubCopilot: { driver: "copilotAgent" },
-  commandCode: { driver: "commandCodeAgent" },
-  kiro: { driver: "kiroAgent" },
-  devin: { driver: "devinAgent" },
-  openaiCompat: { driver: "openai-compat" },
-  mistral: { driver: "mistral" },
-  cerebras: { driver: "cerebras" },
-  groq: { driver: "groq" },
-  greenference: { driver: "greenference" },
-  modelgo: { driver: "modelgo" },
-  meta: { driver: "meta" },
-  deepseek: { driver: "deepseekAgent" },
-  museCode: { driver: "museCode" },
-  ...API_KEY_FLEET,
-  ...CUSTOM_ONLY,
-} as const;
+export const PRODUCT_FLEET_ADDITIONS = { houshiar: DEFAULT_FLEET.houshiar! } as const;

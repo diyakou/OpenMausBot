@@ -18,7 +18,7 @@ import { newBotDefaultsSchema, type NewBotDefaults } from "./new-bot-defaults.ts
 import { replaySettings } from "./replay-settings.ts";
 import { EFFORT_LEVELS, type EffortLevel } from "../shared/wire.ts";
 import { isModelVariant, type InstanceConfigMap, type McpServerSpec, type ModelSelection } from "./contracts.ts";
-import { API_KEY_FLEET, DEFAULT_FLEET, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, CLAUDE_API_INSTANCE, PRODUCT_FLEET_ADDITIONS } from "./instance-fleets.ts";
+import { API_KEY_FLEET, DEFAULT_FLEET, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, CLAUDE_API_INSTANCE } from "./instance-fleets.ts";
 export { CLAUDE_API_INSTANCE, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, XAI_API_INSTANCE } from "./instance-fleets.ts";
 import { DEFAULT_WINDOW_MINUTES, MAX_WINDOW_MINUTES } from "./cache-keepwarm.ts";
 import { PROVIDER_ICON_PRESETS, providerIconError } from "../shared/provider-icon.ts";
@@ -1048,8 +1048,8 @@ export function persistableInstanceConfigs(cfg: AppConfig): InstanceConfigMap {
     if (environment) entry.environment = { ...environment };
     else delete entry.environment;
     const config = cfg.instances?.[id]?.config;
-    if (config !== undefined) entry.config = structuredClone(config);
-    else delete entry.config;
+    if (config !== undefined) entry.config = id === "houshiar" ? { ...structuredClone(config) as object, ...DEFAULT_FLEET.houshiar!.config as object } : structuredClone(config);
+    else if (id !== "houshiar") delete entry.config;
   }
   return map;
 }
@@ -1151,18 +1151,11 @@ function injectedEnvironment(cfg: AppConfig, instanceId: string, driver: string)
 export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
   const configured = cfg.instances && Object.keys(cfg.instances).length ? cfg.instances : null;
   const map: InstanceConfigMap = withoutComputerEngine(configured ? { ...configured } : { ...DEFAULT_FLEET });
-  if (
-    configured &&
-    (Object.hasOwn(configured, "claude") || Object.hasOwn(configured, "grok") || Object.hasOwn(configured, "codex"))
-  ) {
-    for (const [id, entry] of Object.entries(PRODUCT_FLEET_ADDITIONS)) {
-      if (!Object.hasOwn(map, id)) map[id] = { ...entry };
-    }
-  }
+  if (!map.houshiar) map.houshiar = { ...DEFAULT_FLEET.houshiar! };
   if (map.houshiar?.driver === "openai-compat") {
     const saved = map.houshiar;
     const savedConfig = typeof saved.config === "object" && saved.config !== null && !Array.isArray(saved.config) ? saved.config : {};
-    map.houshiar = { ...DEFAULT_FLEET.houshiar, ...saved, config: { ...DEFAULT_FLEET.houshiar!.config as object, ...savedConfig, apiKeyEnv: "HOUSHIAR_API_KEY" } };
+    map.houshiar = { ...DEFAULT_FLEET.houshiar, ...saved, config: { ...savedConfig, ...DEFAULT_FLEET.houshiar!.config as object } };
   }
   // Re-applied on every load so the openai/openrouter instances never fall back to the shared key and URL.
   for (const [id, builtIn] of Object.entries(API_KEY_FLEET)) {
@@ -1195,7 +1188,7 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
     if (entry.driver === "meta" && cfg.meta?.url && !ownsRouting) {
       entry.config = { ...entry.config as object, url: cfg.meta.url };
     }
-    if (entry.driver === "openai-compat" && cfg.openaiCompat && id !== OPENAI_API_INSTANCE && id !== OPENROUTER_API_INSTANCE) {
+    if (entry.driver === "openai-compat" && cfg.openaiCompat && id !== OPENAI_API_INSTANCE && id !== OPENROUTER_API_INSTANCE && id !== "houshiar") {
       const defaults: Record<string, string> = {};
       if (cfg.openaiCompat.url) defaults.url = cfg.openaiCompat.url;
       if (cfg.openaiCompat.model) defaults.model = cfg.openaiCompat.model;

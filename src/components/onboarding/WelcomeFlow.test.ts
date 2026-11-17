@@ -100,7 +100,7 @@ afterEach(async () => {
 describe("a new install's first run", () => {
   it("is two screens with an AI already working: Next, then Create, and it lands in the Chief's chat", async () => {
     await show();
-    expect(host.querySelector("h1")?.textContent).toBe("Meet MausBot");
+    expect(host.querySelector("h1")?.textContent).toBe("Meet HoshAgent");
     expect(host.querySelector("[data-demo-composer]")?.textContent, "reduced motion shows the whole sentence").toContain("Hand off any task to your team of bots");
     for (const gone of ["Step 1", "Back", "Skip", "Your name", "Connect an AI", "Set up later"]) expect(text()).not.toContain(gone);
     expect(button("Next")!.disabled).toBe(false);
@@ -180,39 +180,15 @@ describe("What's new", () => {
 });
 
 describe("with no AI working yet", () => {
-  it("keeps the screen's shape: the pill signs in, and the line under it offers other ways or later", async () => {
+  it("asks for the Houshiar key directly without offering other providers or skipping setup", async () => {
     f.state = { ...f.state, instances: [signIn()] };
     await show();
-    expect(host.querySelector("h1")?.textContent).toBe("Meet MausBot");
+    expect(host.querySelector("h1")?.textContent).toBe("Meet HoshAgent");
+    expect(host.querySelector('input[type="password"]')).not.toBeNull();
+    expect(button("Connect Houshiar")!.disabled).toBe(true);
     expect(button("Next")).toBeUndefined();
-    expect(button("Sign in with Claude")).toBeDefined();
-    expect(button("Other ways to connect")).toBeDefined();
-    expect(host.querySelector("[data-engine-setup]"), "no setup card on the screen itself").toBeNull();
-    await toChief("Set up later");
-    expect(text()).toContain("Introducing your Chief of Staff");
-  });
-
-  it("opens every other way in the Connect an AI dialog, where OpenCode's free model is only a backup", async () => {
-    f.state = { ...f.state, instances: [freeOpenCode, claude(false)] };
-    await show();
-    expect(button("Connect Claude"), "an AI set up in Terminal opens the dialog").toBeDefined();
-    expect(f.checks).toEqual([]);
-    await press("Other ways to connect");
-    const dialog = host.querySelector("[data-connect-ai]")!;
-    expect(dialog.textContent).toContain("Connect an AI");
-    expect(dialog.textContent).toContain("OpenCode's free model is ready as a backup");
-    expect(dialog.querySelector('[data-engine-setup="claude"]')).not.toBeNull();
-    await act(async () => { dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-    expect(host.querySelector("[data-connect-ai]")).toBeNull();
-    expect(text(), "Escape closed the dialog only").toContain("Meet MausBot");
-  });
-
-  it("says why an AI didn't answer its test, under the pill and in the dialog with Check again", async () => {
-    f.state = { ...f.state, instances: [freeOpenCode, claude(true, "failed")] };
-    await show();
-    expect(host.querySelector("[role=alert]")?.textContent).toContain("Claude");
-    await press("Other ways to connect");
-    expect(host.querySelector("[data-connect-ai] [data-ai-silent]")).not.toBeNull();
+    expect(button("Other ways to connect")).toBeUndefined();
+    expect(button("Set up later")).toBeUndefined();
   });
 
   it("leaves the AI out for one that answered the server's own test", async () => {
@@ -240,23 +216,20 @@ describe("with no AI working yet", () => {
     expect(button("Set up later")).toBeUndefined();
   });
 
-  it("moves on with Escape, and Enter presses the pill, never past an AI still to connect", async () => {
+  it("does not advance with Enter while the key is empty", async () => {
     f.state = { ...f.state, instances: [claude(false)] };
     await show();
     await key("Enter");
-    expect(host.querySelector("[data-connect-ai]"), "Enter pressed Connect Claude").not.toBeNull();
-    expect(text()).toContain("Meet MausBot");
-    await act(async () => { host.querySelector("[data-connect-ai]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
-    await key("Escape");
-    await tick(100);
-    expect(text()).toContain("Introducing your Chief of Staff");
+    expect(host.querySelector('input[type="password"]')).not.toBeNull();
+    expect(text()).toContain("Meet HoshAgent");
+    expect(f.onDone).not.toHaveBeenCalled();
   });
 });
 
 describe("other first runs", () => {
   it("gives a hosted place's admin the first screen only, then the chat", async () => {
     await show({ hosted: true });
-    expect(text()).toContain("This is your team's shared MausBot");
+    expect(text()).toContain("This is your team's shared HoshAgent");
     await press("Next");
     expect(text()).not.toContain("Introducing your Chief of Staff");
     expect(f.onDone).toHaveBeenCalledExactlyOnceWith(null);

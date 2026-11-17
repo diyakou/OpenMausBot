@@ -113,7 +113,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
   const claudeUpdatesInFlight = new Set<string>();
   return async ({ req, res, url, path, method, auth, json, readBody }) => {
     if (method === "GET" && path === "/api/instances/hidden") {
-      const hidden = Object.entries(persistableInstanceConfigs(cfg)).filter(([, entry]) => entry.hidden === true);
+      const hidden = Object.entries(persistableInstanceConfigs(cfg)).filter(([id, entry]) => id === "houshiar" && entry.hidden === true);
       return json(res, 200, { instances: hidden.map(([instanceId, entry]) => ({ instanceId, driverKind: entry.driver, displayName: entry.displayName ?? BUILT_IN_DRIVERS.find((driver) => driver.driverKind === entry.driver)?.metadata.displayName ?? instanceId })) });
     }
     if (method === "GET" && path === "/api/instances") {
@@ -523,7 +523,8 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
         }
         if (body.url !== undefined || body.apiKey !== undefined) {
           if (!ownerOrAdmin(auth)) return json(res, 403, { error: "Only the owner or an admin can change a server's address or key." });
-          if (!isAddedEndpoint(instanceId, entry)) return json(res, 400, { error: "The base URL and key can be changed here for added OpenAI-compatible servers only." });
+          if (!isAddedEndpoint(instanceId, entry) && instanceId !== "houshiar") return json(res, 400, { error: "The base URL and key can be changed here for added OpenAI-compatible servers only." });
+          if (instanceId === "houshiar" && body.url !== undefined && body.url !== "https://api.houshiar-ai.ir/v1") return json(res, 400, { error: "Houshiar has a fixed API address." });
           const changed = changeEndpointAddress(instances, instanceId, { url: body.url, apiKey: body.apiKey });
           if ("error" in changed) return json(res, changed.status, { error: changed.error });
           // A model list read from the server's /models is read again from the new address or with the new key.

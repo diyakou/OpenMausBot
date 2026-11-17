@@ -202,3 +202,28 @@ no-AI first screen, the Chief screen with bots to choose and narrow windows were
 checked in `onboarding-preview.html` (`?ai=0`, `?screen=chief&bots=3`,
 `?w=840&h=620`) in Midnight and Daylight. Before and after screenshots are in
 `evidence/onboarding/`.
+
+
+## HoshAgent and Houshiar setup
+
+HoshAgent offers only Houshiar. Welcome asks for its API key directly, and
+Settings uses the same form. The endpoint is fixed to
+`https://api.houshiar-ai.ir/v1`; model IDs come from its authenticated `/models`
+response, without a baked-in model list or another provider's fallback.
+
+Run the offline checks:
+
+```sh
+pnpm exec vitest run src/components/HoushiarSetup.dom.test.ts src/components/onboarding/ConnectAi.test.ts src/components/onboarding/WelcomeFlow.test.ts server/routes/instances.test.ts server/houshiar.test.ts server/harness/houshiar-policy.test.ts
+```
+
+These exercise password input, empty-key guards, saving, failed saves, unreadable
+catalogs, fixed-origin enforcement, independent credentials, and exclusion of
+legacy providers. HTTP route checks use disposable loopback servers and synthetic
+keys; they never contact Houshiar or use a person's credentials.
+
+Launch the isolated fixture above and inspect `GET /api/instances`: without a
+Houshiar key it lists only Houshiar, with no models and no working engine. A doctor
+result of `ok: false` is expected in that signed-out fixture. This does not prove
+real Houshiar authentication. Browser screenshot verification also requires the
+pinned Chrome download to succeed.

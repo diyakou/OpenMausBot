@@ -9,6 +9,7 @@ describe("Houshiar registry policy", () => {
     const registry = new ProviderRegistry([fake.driver]);
     await registry.load({ houshiar: { driver: "fake", config: { apiKeyEnv: "HOUSHIAR_API_KEY" } }, other: { driver: "fake" } });
     expect(registry.instances()).toHaveLength(0);
+    expect(await registry.describe()).toEqual([]);
     const fixture = new ProviderRegistry([fake.driver], { allowFixtureDrivers: true });
     await fixture.load({ other: { driver: "fake" } });
     expect(fixture.get("other")).not.toBeNull();

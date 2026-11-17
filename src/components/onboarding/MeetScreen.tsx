@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUp, Check, Plus } from "lucide-react";
 import { BotAvatar, MausAvatar } from "@/components/Avatar";
-import { engineReady } from "@/components/EngineLibrary";
 import { usePrefersReducedMotion } from "@/components/mascot-clock";
 import { brand, productName } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 import { DEFAULT_BOT_NAME, myDefaultBot, useViewerEmail } from "@/lib/default-bot";
 import { activeLocale, t } from "@/lib/i18n";
-import { aiChoices, aiWorks } from "@/lib/onboarding";
+import { aiWorks } from "@/lib/onboarding";
 import { useStore } from "@/state/store";
-import { ConnectAiDialog } from "./ConnectAi";
-import { PILL, SignInPill, useSignInPill } from "./SignInPill";
+import { HoushiarSetup } from "../HoushiarSetup";
+import { PILL } from "./SignInPill";
 import { useWelcomeAi } from "./welcome-ai";
 
 const MASCOT_SIZE = 72;
@@ -67,14 +66,11 @@ export function MeetScreen({ hosted, onNext }: { hosted: boolean; onNext: () => 
   useEffect(() => {
     if (!hosted && known && !ready && tested?.state !== "testing") setAsking(true);
   }, [hosted, known, ready, tested?.state]);
-  const { recommended } = aiChoices(state.instances.filter((instance) => instance.install && !engineReady(instance)));
-  const pill = useSignInPill(recommended);
-  const [dialog, setDialog] = useState(false);
   const [typing, setTyping] = useState(false);
 
   const logo = brand().logo;
   const face = typing ? "listening" : "idle";
-  const failure = pill.error ?? (tested?.state === "failed" ? tested.error ?? t("onboarding.engines.noAnswer", { name: tested.instance.displayName }) : null);
+  const failure = (tested?.state === "failed" ? tested.error ?? t("onboarding.engines.noAnswer", { name: tested.instance.displayName }) : null);
   const signingIn = asking && !ready;
   return (
     <div className="relative h-full min-h-[600px] w-full text-center">
@@ -96,29 +92,21 @@ export function MeetScreen({ hosted, onNext }: { hosted: boolean; onNext: () => 
           {t("onboarding.hosted.intro")}
         </p>
       )}
-      <div className="absolute left-1/2 top-[calc(50%+200px)] flex w-[320px] max-w-[calc(100%-32px)] -translate-x-1/2 flex-col items-center">
+      <div className="absolute left-1/2 top-[calc(50%+120px)] flex w-[320px] max-w-[calc(100%-32px)] -translate-x-1/2 flex-col items-center">
         {asking && ready && tested && (
           <p role="status" data-ai-connected="" className="absolute -top-8 flex items-center gap-1.5 whitespace-nowrap text-[13px] leading-[18px] text-success">
             <Check size={14} strokeWidth={2.5} aria-hidden="true" />{t("onboarding.meet.connected", { name: tested.instance.displayName })}
           </p>
         )}
         {signingIn ? (
-          <SignInPill pill={pill} instance={recommended} waiting={tested?.state === "testing"} onDialog={() => setDialog(true)} />
+          <HoushiarSetup />
         ) : (
           <button type="button" data-primary="" onClick={onNext} className={cn(PILL, asking && "animate-fade-in [animation-duration:150ms]")}>
             {t("onboarding.meet.next")}
           </button>
         )}
-        {signingIn && (
-          <p className="mt-3 text-[13px] leading-[18px] text-ink-secondary">
-            <button type="button" onClick={() => setDialog(true)} className="rounded transition-colors hover:text-ink">{t("onboarding.meet.otherWays")}</button>
-            <span aria-hidden="true"> · </span>
-            <button type="button" data-welcome-later="" onClick={onNext} className="rounded transition-colors hover:text-ink">{t("onboarding.meet.setupLater")}</button>
-          </p>
-        )}
         {signingIn && failure && <p role="alert" className="mt-2 text-[13px] leading-[18px] text-danger">{failure}</p>}
       </div>
-      {dialog && <ConnectAiDialog hosted={hosted} tested={tested} onClose={() => setDialog(false)} />}
     </div>
   );
 }

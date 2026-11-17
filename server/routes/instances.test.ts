@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { instanceConfigs, type AppConfig } from "../config.ts";
+import { instanceConfigs, persistableInstanceConfigs, type AppConfig } from "../config.ts";
 import type { ProviderAuthenticationStart, ProviderAuthenticationStatus } from "../contracts.ts";
 import { ENGINE_LIST_REUSE_MS, ProviderRegistry } from "../harness/registry.ts";
 import { json, readBody } from "../harness/http.ts";
@@ -20,7 +20,7 @@ afterEach(async () => {
 
 async function serve(extra: Partial<InstanceRouteDeps> = {}, auth: RequestAuth = { kind: "loopback", scopes: ["admin"] }) {
   const fake = makeFakeDriver();
-  const registry = new ProviderRegistry([fake.driver]);
+  const registry = new ProviderRegistry([fake.driver], { allowFixtureDrivers: true });
   await registry.load({ a: { driver: "fake" } });
   const sign = {
     start: { phase: "waiting", flowId: "flow-1", authorizationUrl: "https://example.test/sign-in", expiresAt: null } as ProviderAuthenticationStart,
@@ -182,7 +182,7 @@ describe("installing an engine's own build from Settings", () => {
     const { status, body, persisted } = await serveInstall({ useCli: appCopy });
     expect(status).toBe(200);
     expect(body.usingAppCopy).toBe(true);
-    expect(persisted).toEqual([{ instanceId: "opencode", instances: { opencode: { driver: "opencodeGo", config: { cli: appCopy } } } }]);
+    expect(persisted).toEqual([{ instanceId: "opencode", instances: { ...persistableInstanceConfigs({}), opencode: { driver: "opencodeGo", config: { cli: appCopy } } } }]);
   });
 
   it("changes nothing while provider settings are being saved", async () => {
@@ -289,7 +289,7 @@ describe("a server's reply wait", () => {
 
   it("saves minutes for the built-in OpenAI-compatible server, such as a local Ollama set by its base URL", async () => {
     const persisted: Array<Record<string, { driver: string; config?: Record<string, unknown> }>> = [];
-    const cfg = { openaiCompat: { url: "http://127.0.0.1:11434/v1" } };
+    const cfg = { instances: { openaiCompat: { driver: "openai-compat" } }, openaiCompat: { url: "http://127.0.0.1:11434/v1" } };
     const { call } = await serve({
       cfg: cfg as unknown as AppConfig,
       persistProviderInstance: async (_id: string, instances: typeof persisted[number]) => {
@@ -322,7 +322,7 @@ describe("hiding a provider", () => {
     expect(await status("a", { hidden: true })).toBe(409);
     await call("PATCH", "/api/instances/hermes", { hidden: true });
     expect(persisted.at(-1)!.hermes).toMatchObject({ driver: "fake", hidden: true });
-    expect((await call("GET", "/api/instances/hidden")).instances).toEqual([{ instanceId: "hermes", driverKind: "fake", displayName: "Hermes" }]);
+    expect((await call("GET", "/api/instances/hidden")).instances).toEqual([]);
     await call("PATCH", "/api/instances/hermes", { hidden: false });
     expect(persisted.at(-1)!.hermes).not.toHaveProperty("hidden");
     expect((await call("GET", "/api/instances/hidden")).instances).toEqual([]);
@@ -356,5 +356,24 @@ describe("looking for Ollama", () => {
     expect((await fetch(`${shell.base}/api/instances/ollama?url=${encodeURIComponent("http://127.0.0.1:9")}`)).status).toBe(403);
     const hosted = await serve({ hostedModels: true });
     expect((await fetch(`${hosted.base}/api/instances/ollama`)).status).toBe(403);
+  });
+});
+
+
+describe("Houshiar key setup", () => {
+  it("saves its own key and probes only the fixed endpoint", async () => {
+    const persisted: any[] = [];
+    const detected: unknown[] = [];
+    const { call, base } = await serve({
+      cfg: {} as AppConfig,
+      persistProviderInstance: async (_id, instances) => { persisted.push(structuredClone(instances)); },
+      endpointModelsReadable: async (config) => { detected.push(config); return true; },
+    });
+    await call("PATCH", "/api/instances/houshiar", { apiKey: "fixture-houshiar-key" });
+    expect(persisted[0].houshiar.config).toMatchObject({ key: "fixture-houshiar-key", url: "https://api.houshiar-ai.ir/v1", apiKeyEnv: "HOUSHIAR_API_KEY" });
+    expect(detected).toEqual([{ key: "fixture-houshiar-key", url: "https://api.houshiar-ai.ir/v1", catalog: undefined }]);
+    const refused = await fetch(`${base}/api/instances/houshiar`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key", url: "https://other.example/v1" }) });
+    expect(refused.status).toBe(400);
+    expect(persisted).toHaveLength(1);
   });
 });

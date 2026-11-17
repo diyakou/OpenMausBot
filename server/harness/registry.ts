@@ -517,7 +517,7 @@ export class ProviderRegistry {
     };
     const npmPresent = this.npmPresent();
     return Promise.all(
-      this.entries().map(async (entry) => {
+      this.entries().filter((entry) => this.allowFixtureDrivers || entry.shadow?.reason !== "Only Houshiar engines are available").map(async (entry) => {
         const driver = this.driversByKind.get(entry.shadow?.driverKind ?? entry.live!.driverKind);
         if (entry.shadow) {
           return {
