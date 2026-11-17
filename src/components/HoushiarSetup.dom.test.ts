@@ -32,7 +32,7 @@ async function submit() {
 }
 
 it("saves only the Houshiar key, clears the field and publishes the returned model list", async () => {
-  fixture.api.mockResolvedValue({ instances: [] });
+  fixture.api.mockResolvedValue({ instances: [{ instanceId: "houshiar", models: { options: [{ id: "fixture-model" }] } }] });
   expect(container.querySelector("input")!.type).toBe("password");
   expect(container.querySelector("button")!.disabled).toBe(true);
   await submit();
@@ -40,7 +40,7 @@ it("saves only the Houshiar key, clears the field and publishes the returned mod
   expect(container.querySelector("input")!.value).toBe("");
   expect(container.querySelector("[role=status]")!.textContent).toBe("Houshiar connected");
   expect(container.innerHTML).not.toContain("fixture-secret");
-  expect(fixture.dispatch).toHaveBeenCalledWith({ type: "instances", instances: [] });
+  expect(fixture.dispatch).toHaveBeenCalledWith({ type: "instances", instances: [{ instanceId: "houshiar", models: { options: [{ id: "fixture-model" }] } }] });
 });
 
 it("shows an inline retryable failure without exposing the server error or key", async () => {

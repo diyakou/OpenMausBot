@@ -25,7 +25,7 @@ export function defaultBotRefusal(name: string): string {
  * allowed on a default bot; any other `defaultBot` value is refused — the flag is set at creation, never by PATCH. */
 export function defaultBotPatchRefusal(bot: BotRecord | null, body: Record<string, unknown>): string | null {
   for (const key of ["sidebarHidden", "welcomed"]) if (body[key] !== undefined && typeof body[key] !== "boolean") return `${key} must be true or false`;
-  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only MausBot is hidden this way; archive or delete other bots.";
+  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only HoshAgent is hidden this way; archive or delete other bots.";
   if (body.defaultBot !== undefined && body.defaultBot !== null) return "defaultBot can only be cleared (null), never set by a patch";
   return body.hidden === true && bot?.defaultBot ? defaultBotRefusal(bot.name) : null;
 }
@@ -80,7 +80,7 @@ export function forgetDefaultBot(dataDir: string, person: string): void {
 export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined {
   const oldest = bots.reduce<BotRecord | undefined>((first, bot) => !first || bot.createdAt < first.createdAt ? bot : first, undefined);
   if (!oldest || oldest.hidden || oldest.movedTo || oldest.section?.trim() || oldest.installedPackage) return undefined;
-  return oldest.name === DEFAULT_BOT_NAME || oldest.color === STARTER_COLOR ? oldest : undefined;
+  return [DEFAULT_BOT_NAME, "MausBot", "OpenMausBot", "OpenMuse"].includes(oldest.name) || oldest.color === STARTER_COLOR ? oldest : undefined;
 }
 
 /** Puts the intro where its person sees it next: in its open conversation while nobody has written there, else at the
@@ -120,15 +120,18 @@ export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: str
     .sort((a, b) => a.createdAt - b.createdAt);
   for (const extra of marked.slice(1)) store.patchBot(extra.id, { defaultBot: undefined, sidebarHidden: undefined });
   if (marked[0]) {
-    remember(options.dataDir, person, marked[0].id);
-    return marked[0];
+    const existing = marked[0];
+    const renamed = ["MausBot", "Mause Bot", "OpenMausBot", "OpenMuse"].includes(existing.name)
+      ? store.patchBot(existing.id, { name: DEFAULT_BOT_NAME }) ?? existing : existing;
+    remember(options.dataDir, person, renamed.id);
+    return renamed;
   }
   if (Object.hasOwn(ledger(options.dataDir), person)) return null;
   const adoptable = person ? undefined : seededMausBot(store.bots);
   const chief = !person && !store.bots.some((bot) => bot.chiefOfStaff && !bot.hidden) ? (id: string) => store.setChiefOfStaff(id) : undefined;
   let bot: BotRecord;
   if (adoptable) {
-    bot = store.patchBot(adoptable.id, { defaultBot: {}, ...(adoptable.color === STARTER_COLOR ? { color: DEFAULT_BOT_COLOR } : {}) }) ?? adoptable;
+    bot = store.patchBot(adoptable.id, { defaultBot: {}, ...(["MausBot", "Mause Bot", "OpenMausBot", "OpenMuse"].includes(adoptable.name) ? { name: DEFAULT_BOT_NAME } : {}), ...(adoptable.color === STARTER_COLOR ? { color: DEFAULT_BOT_COLOR } : {}) }) ?? adoptable;
     chief?.(bot.id);
     introduce(store, bot, options.team);
   } else {
@@ -159,7 +162,7 @@ export function takeArrivingDefaultBot(store: Pick<Store, "bots" | "patchBot" | 
   const kept = keptDefaultBot(store, id);
   if (kept) {
     const from = computer?.trim() || "another computer";
-    const plain = [DEFAULT_BOT_NAME, kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
+    const plain = [DEFAULT_BOT_NAME, "MausBot", "Mause Bot", "OpenMausBot", "OpenMuse", kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
     store.patchBot(id, { defaultBot: undefined, sidebarHidden: undefined, ...(plain ? { name: `${DEFAULT_BOT_NAME} (from ${from})` } : {}) });
     return;
   }

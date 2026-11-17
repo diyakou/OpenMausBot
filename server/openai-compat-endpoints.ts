@@ -105,7 +105,7 @@ export function withEndpointUrls(described: unknown, configs: InstanceConfigMap)
   if (!Array.isArray(described)) return described;
   return described.map((instance: { instanceId?: string }) => {
     const entry = instance.instanceId ? configs[instance.instanceId] : undefined;
-    if (!entry || !isAddedEndpoint(instance.instanceId!, entry)) return instance;
+    if (!entry || (!isAddedEndpoint(instance.instanceId!, entry) && instance.instanceId !== "houshiar")) return instance;
     const url = endpointDisplayUrl(entry.config);
     const managedModels = (entry.config as { managedModels?: unknown } | undefined)?.managedModels;
     const placeholderKey = (entry.config as { key?: unknown } | undefined)?.key === OLLAMA_PLACEHOLDER_KEY;

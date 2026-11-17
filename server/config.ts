@@ -1155,7 +1155,8 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
   if (map.houshiar?.driver === "openai-compat") {
     const saved = map.houshiar;
     const savedConfig = typeof saved.config === "object" && saved.config !== null && !Array.isArray(saved.config) ? saved.config : {};
-    map.houshiar = { ...DEFAULT_FLEET.houshiar, ...saved, config: { ...savedConfig, ...DEFAULT_FLEET.houshiar!.config as object } };
+    const legacyKey = cfg.openaiCompat?.url?.replace(/\/+$/, "") === "https://api.houshiar-ai.ir/v1" ? cfg.openaiCompat.key : undefined;
+    map.houshiar = { ...DEFAULT_FLEET.houshiar, ...saved, hidden: false, config: { ...(legacyKey ? { key: legacyKey } : {}), ...savedConfig, ...DEFAULT_FLEET.houshiar!.config as object } };
   }
   // Re-applied on every load so the openai/openrouter instances never fall back to the shared key and URL.
   for (const [id, builtIn] of Object.entries(API_KEY_FLEET)) {

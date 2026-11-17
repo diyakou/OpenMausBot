@@ -368,6 +368,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
     } : undefined;
 
     // The first list says which models can call tools, and is what the engine list shows right after adding Ollama.
+
     if (loading && isOllamaServer(config)) await Promise.race([loading, new Promise((done) => { setTimeout(done, OLLAMA_FIRST_LIST_MS).unref(); })]);
 
     const runtime = createOpenAIChatRuntime({
@@ -427,6 +428,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
         }),
       },
     });
+    if (loading && config.apiKeyEnv === "HOUSHIAR_API_KEY") await loading;
     if (loading && isOllamaServer(config)) {
       const send = runtime.adapter.sendTurn;
       runtime.adapter.sendTurn = async (turn) => { await loading; return send(turn); };
