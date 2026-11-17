@@ -44,8 +44,6 @@ on:
       - main
     tags:
       - 'v*'
-    paths:
-      - package.json
 
 permissions:
   contents: read
@@ -73,7 +71,7 @@ jobs:
           current=$(node -p "require('./package.json').version")
           echo "version=$current" >> "$GITHUB_OUTPUT"
           should_release=true
-          if [ "$GITHUB_EVENT_NAME" = push ]; then
+          if [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" != refs/tags/* ]]; then
             git cat-file -e "$BEFORE:package.json" 2>/dev/null || {
               echo "::error::cannot verify the version before this push; refusing to start a release"
               exit 1
