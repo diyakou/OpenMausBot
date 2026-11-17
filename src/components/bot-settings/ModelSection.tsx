@@ -89,6 +89,7 @@ export function FallbackChain({ bot, onChange }: { bot: Bot; onChange: (fallback
   const freeModel = (instance: InstanceInfo) => [...(defaultOffered(instance) ? [instance.models.default] : []), ...offeredBy(instance).map((model) => model.id)]
     .find((model) => model.trim() && !taken(instance.instanceId, model));
   const available = state.instances.filter((instance) =>
+    instance.driverKind === "openai-compat" && instance.url?.replace(/\/+$/, "") === "https://api.houshiar-ai.ir/v1" &&
     instance.snapshot.state === "available" && Boolean(instance.models.default.trim()) && freeModel(instance) !== undefined);
   const nameOf = (instanceId: string) => state.instances.find((instance) => instance.instanceId === instanceId)?.displayName ?? instanceId;
   const main = state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId);

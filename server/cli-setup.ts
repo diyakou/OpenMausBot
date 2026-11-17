@@ -151,8 +151,6 @@ const NATIVE: readonly NativeChoice[] = [
   },
 ];
 
-const NATIVE_DRIVERS = new Set(NATIVE.map((n) => n.driver));
-
 async function connectNative(
   choice: NativeChoice, id: string, entry: InstanceConfig, io: SetupIo, deps: SetupDependencies,
 ): Promise<ModelCatalog> {
@@ -213,16 +211,16 @@ export async function runSetup(
     const cfg = loadConfig();
     const runtime = instanceConfigs(cfg);
     const existing = Object.entries(runtime).filter(([id, entry]) =>
-      !!cfg.instances?.[id] && (NATIVE_DRIVERS.has(entry.driver) || entry.driver === "openai-compat") && entry.enabled !== false);
+      !!cfg.instances?.[id] && entry.driver === "openai-compat" && entry.enabled !== false &&
+      rawObject(entry.config).url === API_ENDPOINTS[0].url);
     io.log("\nWelcome to OpenMausBot\n");
     io.log("Let's connect your AI. Choose a provider, then a model.");
     io.log("Existing bots and conversations stay untouched. Ctrl-C cancels.");
     io.log("You can add integrations and change settings later.\n");
-    const existingStart = NATIVE.length + 1;
+    const existingStart = 1;
     const existingDefault = existing.findIndex(([id]) => id === cfg.defaultModelSelection?.instanceId);
     const providerOptions = [
-      ...NATIVE.map((n) => n.label),
-      "API key — OpenAI, OpenRouter, Groq or a compatible service (chat only)",
+      "Houshiar API key",
       ...existing.map(([id, entry]) => `Use existing: ${entry.displayName ?? id}${id === cfg.defaultModelSelection?.instanceId ? " — current" : ""}`),
     ];
     let pick: number | undefined;
@@ -233,7 +231,7 @@ export async function runSetup(
     for (;;) {
       pick ??= await io.choose("Choose your AI connection", providerOptions, existingDefault < 0 ? 0 : existingDefault + existingStart);
       const prior = pick >= existingStart ? existing[pick - existingStart] : undefined;
-      const native = pick < NATIVE.length ? NATIVE[pick] : NATIVE.find((n) => n.driver === prior?.[1].driver);
+      const native = prior ? NATIVE.find((n) => n.driver === prior[1].driver) : undefined;
       try {
         if (native) {
           // Reuse native provider settings; an ID the user repurposed keeps its connection.
@@ -267,11 +265,10 @@ export async function runSetup(
             reuse = !!key;
             if (!key) key = (await io.secret(`API key for ${url} (hidden): `)).trim();
           } else {
-            const endpoint = await io.choose("Which API service?", [...API_ENDPOINTS.map((e) => e.label), "Other OpenAI-compatible endpoint"]);
-            const preset = API_ENDPOINTS[endpoint];
-            url = preset ? preset.url : normalizeApiUrl((await io.ask("API base URL (including /v1): ")).trim());
-            label = preset?.label ?? new URL(url).hostname;
-            if (preset) io.log(`Create a key: ${preset.keyUrl}`);
+            const preset = API_ENDPOINTS[0];
+            url = preset.url;
+            label = preset.label;
+            io.log(`Create a key: ${preset.keyUrl}`);
             key = (await io.secret(`API key for ${url} (hidden): `)).trim();
           }
           if (!key) throw new Error("An API key is required. Nothing was saved.");
@@ -299,7 +296,7 @@ export async function runSetup(
           id = reuse && prior ? prior[0] : `api-${randomUUID().slice(0, 8)}`;
           entry = reuse && prior
             ? { ...cfg.instances![id]!, config: { ...rawObject(cfg.instances![id]!.config), model } }
-            : { driver: "openai-compat", displayName: label, config: { url, key, model, provider: routingProvider ?? "" } };
+            : { driver: "openai-compat", displayName: label, config: { url, key, model, provider: routingProvider ?? "", ...(url === "https://api.houshiar-ai.ir/v1" ? { apiKeyEnv: "HOUSHIAR_API_KEY" } : {}) } };
           if (!reuse) io.log("The key will be stored in your private config.json (plaintext, owner-only permissions on Unix). Never share this file.");
         }
         break;

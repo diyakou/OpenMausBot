@@ -681,7 +681,7 @@ function fallbackEnv(entry: InstanceConfigMap[string]): string[] {
     case "cerebras": return ["CEREBRAS_API_KEY"];
     case "grok": return [named ?? "XAI_API_KEY"];
     case "openai-compat":
-      return named && Object.values(API_KEY_FLEET).some((own) => (own.config as { apiKeyEnv?: string } | undefined)?.apiKeyEnv === named)
+      return named && (named === "HOUSHIAR_API_KEY" || Object.values(API_KEY_FLEET).some((own) => (own.config as { apiKeyEnv?: string } | undefined)?.apiKeyEnv === named))
         ? [named]
         : [...new Set([named ?? "OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_URL", "OPENAI_COMPAT_MODEL", "OPENAI_COMPAT_PROVIDER"])];
     default: return [];
@@ -1158,6 +1158,11 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
     for (const [id, entry] of Object.entries(PRODUCT_FLEET_ADDITIONS)) {
       if (!Object.hasOwn(map, id)) map[id] = { ...entry };
     }
+  }
+  if (map.houshiar?.driver === "openai-compat") {
+    const saved = map.houshiar;
+    const savedConfig = typeof saved.config === "object" && saved.config !== null && !Array.isArray(saved.config) ? saved.config : {};
+    map.houshiar = { ...DEFAULT_FLEET.houshiar, ...saved, config: { ...DEFAULT_FLEET.houshiar!.config as object, ...savedConfig, apiKeyEnv: "HOUSHIAR_API_KEY" } };
   }
   // Re-applied on every load so the openai/openrouter instances never fall back to the shared key and URL.
   for (const [id, builtIn] of Object.entries(API_KEY_FLEET)) {

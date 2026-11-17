@@ -3,9 +3,9 @@
 // (only for requests it accepts), else the OpenRouter LLM fallback, else nothing. Jev does not extract. One switch for
 // both helper models: decider.enabled.
 import type { AppConfig } from "../config.ts";
-import { helpersOn, includedAccount, openrouterAccount, sharedOpenRouterKey, workersAiAccount, type HelperAccount } from "../decider/accounts.ts";
+import { helpersOn, sharedOpenRouterKey, type HelperAccount } from "../decider/accounts.ts";
 import type { DeciderFailure } from "../decider/types.ts";
-import { EXTRACT_KEY_CHECK, extractRequestProblem, relayAcceptsExtract } from "./contract.ts";
+import { EXTRACT_KEY_CHECK, extractRequestProblem } from "./contract.ts";
 import { extractWithOpenRouter, extractWithRelay, OPENROUTER_EXTRACT_MODEL } from "./remote.ts";
 import type { ExtractBackendRequest, ExtractBackendResult, ExtractInput, ExtractOptions, ExtractResult, ExtractSeam, FieldSchema } from "./types.ts";
 import { extractWithWorkersAi } from "./workers-ai.ts";
@@ -17,10 +17,8 @@ const MIN_TIMEOUT_MS = 50;
 const MAX_TIMEOUT_MS = 30_000;
 
 /** In order: own Workers AI, Cloud's included relay (only for requests it accepts), OpenRouter, nothing. */
-export function extractorAccount(cfg: AppConfig, request?: { seam: ExtractSeam; fields: FieldSchema; input: ExtractInput }): HelperAccount | null {
-  const candidates = [workersAiAccount(cfg), includedAccount(), openrouterAccount(cfg)];
-  return candidates.find((account): account is HelperAccount =>
-    Boolean(account) && !(account!.included && request && !relayAcceptsExtract(request.seam, request.fields, request.input))) ?? null;
+export function extractorAccount(_cfg: AppConfig, _request?: { seam: ExtractSeam; fields: FieldSchema; input: ExtractInput }): HelperAccount | null {
+  return null;
 }
 
 export function extractorReady(cfg: AppConfig): boolean {

@@ -178,11 +178,14 @@ export class LiveCallController {
     this.deps = deps;
   }
 
+  private liveCallsUnavailable(): boolean { return true; }
+
   current(): LiveCallState | null {
     return this.call && this.call.state.status !== "ended" ? { ...this.call.state } : null;
   }
 
   async start(input: { auth: RequestAuth; device?: string; botId: string; botName: string; threadId: string; client: LiveClient; sdp?: string }): Promise<LiveCallStarted> {
+    if (this.liveCallsUnavailable()) throw new LiveSessionError("Live calls are unavailable: no Houshiar live protocol is configured", 503);
     const settings = this.deps.settings();
     // First: someone refused here is not told about a running call, or sent to set Azure or a relayed service up.
     // The chosen relayed service comes before a key's endpoint, so its refusal and its mismatch check apply.

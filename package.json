@@ -2,11 +2,11 @@
   "name": "openmausbot",
   "private": true,
   "version": "0.1.165",
-  "description": "A local-first chat app for running a team of AI agents.",
-  "homepage": "https://github.com/milind-soni/OpenMausBot",
+  "description": "HoshAgent is a local-first chat app for running a team of AI agents.",
+  "homepage": "https://github.com/diyakou/OpenMausBot",
   "repository": {
     "type": "git",
-    "url": "https://github.com/milind-soni/OpenMausBot.git"
+    "url": "https://github.com/diyakou/OpenMausBot.git"
   },
   "author": {
     "name": "Milind Soni",

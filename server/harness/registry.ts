@@ -126,11 +126,13 @@ export class ProviderRegistry {
   private readonly npmPresent: () => boolean;
   private readonly status: ReturnType<typeof engineStatusFile> | null;
   private readonly installStandalone: InstallStandalone;
+  private readonly allowFixtureDrivers: boolean;
 
   constructor(
     drivers: readonly AnyProviderDriver[],
-    options: { enginesBaseDir?: string; npmAvailable?: () => boolean; statusFile?: string; installStandalone?: InstallStandalone } = {},
+    options: { enginesBaseDir?: string; npmAvailable?: () => boolean; statusFile?: string; installStandalone?: InstallStandalone; allowFixtureDrivers?: boolean } = {},
   ) {
+    this.allowFixtureDrivers = options.allowFixtureDrivers === true;
     this.enginesBaseDir = options.enginesBaseDir;
     this.npmPresent = options.npmAvailable ?? npmAvailable;
     this.status = options.statusFile ? engineStatusFile(options.statusFile) : null;
@@ -176,6 +178,11 @@ export class ProviderRegistry {
   ): Promise<RegistryEntry> {
     await this.dispose(instanceId);
     const driver = this.driversByKind.get(entry.driver);
+    const config = entry.config && typeof entry.config === "object" && !Array.isArray(entry.config) ? entry.config as Record<string, unknown> : {};
+    const allowed = entry.driver === "openai-compat" && config.apiKeyEnv === "HOUSHIAR_API_KEY";
+    if (!this.allowFixtureDrivers && !allowed) {
+      return { instanceId, shadow: { instanceId, driverKind: entry.driver, displayName: entry.displayName, cli: undefined, shadow: true, reason: "Only Houshiar engines are available" } };
+    }
     if (!driver) {
       return {
         instanceId,
@@ -349,7 +356,7 @@ export class ProviderRegistry {
 
   async installRuntime(instanceId: InstanceId): Promise<InstallResult | false> {
     const entry = this.byId.get(instanceId);
-    if (!entry) return false;
+    if (!entry || !entry.live) return false;
     // A failed install changes the status too: Antigravity reports the failure as its reason.
     try {
       if (entry.live?.installRuntime) {
@@ -357,7 +364,7 @@ export class ProviderRegistry {
         return true;
       }
       // Then the vendor's own build for this platform, then npm.
-      const driver = this.driversByKind.get(entry.shadow?.driverKind ?? entry.live!.driverKind);
+      const driver = this.driversByKind.get(entry.live.driverKind);
       const server = serverInstallFor(driver?.install, this.npmPresent());
       if (server?.standalone && driver?.install?.standalone) {
         const installed = await this.installStandalone(driver.install.standalone, { baseDir: this.enginesBaseDir });

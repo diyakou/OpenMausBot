@@ -15,6 +15,7 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(
 describe("API setup endpoint validation", () => {
   it("offers provider API URLs and key pages, not a stale model catalog", () => {
     expect(API_ENDPOINTS.map(({ id, url }) => [id, url])).toEqual([
+      ["houshiar", "https://api.houshiar-ai.ir/v1"],
       ["openai", "https://api.openai.com/v1"],
       ["openrouter", "https://openrouter.ai/api/v1"],
       ["groq", "https://api.groq.com/openai/v1"],

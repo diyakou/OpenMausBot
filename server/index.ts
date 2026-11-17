@@ -631,6 +631,8 @@ import { createComputerRoutes } from "./routes/computers.ts";
 import { createStatusRoutes } from "./routes/status.ts";
 import { findAntigravityLeftovers, removeAntigravityLeftovers } from "./drivers/antigravity-temp.ts";
 import { createLiveRoutes } from "./routes/live.ts";
+import { createHoushiarVoiceRoutes } from "./routes/houshiar-voice.ts";
+import { operatorEnvKey } from "./credential-env.ts";
 import { createNotificationRoutes, notificationListedFor } from "./routes/notifications.ts";
 import { createTodayRoutes } from "./routes/today.ts"; import { createInboxRoutes } from "./routes/inbox.ts"; import { createSidebarSectionRoutes } from "./routes/sidebar-sections.ts";
 import { createToolTimingRoute, createUsageRoutes } from "./routes/usage.ts"; import { createPrivateRecords } from "./host/private-records.ts"; import { createPublishedApps } from "./host/published-apps.ts"; import { savedNetlifyToken } from "./host/netlify-sites.ts"; import { createIncludedHosting } from "./host/included-hosting.ts"; import { createAppPublisher } from "./host/app-publisher.ts"; import { createPublishedAppsRoutes } from "./routes/published-apps.ts";
@@ -12469,6 +12471,18 @@ ROUTES.push(createDataRoutes({
   compileChart, validateVegaLite, renderer: chartRenderer,
   exportRoots: dataExportRoots,
 }));
+const houshiarVoice = createHoushiarVoiceRoutes({
+  upgrades,
+  key: () => {
+    const entry = providerConfigs().houshiar;
+    const config = entry?.config as { key?: unknown } | undefined;
+    return (typeof config?.key === "string" && config.key) || entry?.environment?.HOUSHIAR_API_KEY || operatorEnvKey("HOUSHIAR_API_KEY") || "";
+  },
+  authorized: (auth) => !azureLiveCallRefusal(auth, { othersOnLoopback: adminActivityRecording() }),
+  signedIn: liveSignedIn,
+});
+sessions.onSessionRevoked((sessionId) => houshiarVoice.revoke(sessionId));
+ROUTES.push(houshiarVoice.route);
 ROUTES.push(createLiveRoutes({
   calls: liveCalls, deviceRevoked: (device) => { phonePush.forget(`companion:${device}`); phoneActivity.forget(`companion:${device}`); },
   resolveTarget: (botId, threadId) => {
@@ -15341,7 +15355,7 @@ const gracefulShutdown = createGracefulShutdown({
       sharedComputerControl.close();
       browserLive.closeAll();
       desktopViewer.closeAll();
-      upgrades.close();
+      upgrades.close(); houshiarVoice.close();
       for (const idle of localVmIdles.values()) idle.cancel();
       cloudComputerPower.close(); boatRecovery.close();
       vps.closeAllVpsDesktopTunnels();

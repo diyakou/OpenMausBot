@@ -292,7 +292,7 @@ export function ModelPicker({
   const refocusAfterPick = useRefocusAfterPick(menuRef, open, selection, query);
   const instances = withTypedModels(state.instances, selection, query);
   const active = instances.find((instance) => instance.instanceId === selection.instanceId);
-  const pickerInstances = configuredModelInstances(instances, selection.instanceId);
+  const pickerInstances = configuredModelInstances(instances.filter((instance) => instance.driverKind === "openai-compat" && instance.url?.replace(/\/+$/, "") === "https://api.houshiar-ai.ir/v1"), selection.instanceId);
   const selectedVariantLabel = selection.variant === undefined ? undefined : variantLabel(
     active?.models.options.find((option) => option.id === selection.model)?.variants?.find((option) => option.id === selection.variant)
       ?? { id: selection.variant, label: selection.variant },

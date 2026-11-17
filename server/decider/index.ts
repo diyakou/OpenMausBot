@@ -4,14 +4,14 @@ import { userError, type UserError } from "../user-errors.ts";
 import type { AppConfig } from "../config.ts";
 import { deciderCredential } from "../included-services.ts";
 import {
-  customAccount, geminiAccount, helpersOn, includedAccount, jevAccount, openrouterAccount, sharedOpenRouterKey, workersAiAccount, type HelperAccount,
+  geminiAccount, helpersOn, sharedOpenRouterKey, type HelperAccount,
 } from "./accounts.ts";
 import { geminiBackend } from "./gemini.ts";
 import { CUSTOM_DEFAULT_API, customApiOf, customBackend, customEndpoint } from "./custom.ts";
 import { jevBackend } from "./jev.ts";
 import { appendDeciderLog, stateHash } from "./log.ts";
 import { OPENROUTER_DEFAULT_API, OPENROUTER_DEFAULT_MODEL, openrouterBackend } from "./openrouter.ts";
-import { KEY_CHECK_QUESTION, KEY_CHECK_STATE, relayAccepts, relaySeam } from "./relay.ts";
+import { KEY_CHECK_QUESTION, KEY_CHECK_STATE, relayAccepts } from "./relay.ts";
 import type {
   Answers, AskOptions, BackendResult, ChoiceAnswer, ChoiceQuestion, CustomApi, DeciderBackend, DeciderFailure, DeciderJob,
   DeciderProvider, DeciderQuestion, DeciderResult, DeciderSeam, OpenRouterApi, ScoreAnswer, YesNoAnswer,
@@ -55,11 +55,8 @@ export function deciderApi(cfg: AppConfig): OpenRouterApi {
 /** A chosen custom gateway decides alone, or nothing does until it is set up. Otherwise, in order: the person's own Jev
  * key, their own Workers AI key (Clef), Cloud's included relay (only for seams it accepts), the OpenRouter LLM fallback,
  * a Gemini key saved for speech or images, nothing. */
-export function deciderAccount(cfg: AppConfig, seam?: DeciderSeam): HelperAccount | null {
-  if (cfg.decider?.provider === "custom") return customAccount(cfg);
-  const jev = jevAccount(cfg);
-  const candidates = [jev, workersAiAccount(cfg), jev?.included ? null : includedAccount(), openrouterAccount(cfg), geminiAccount(cfg)];
-  return candidates.find((account): account is HelperAccount => Boolean(account) && !(account!.included && seam && !relaySeam(seam))) ?? null;
+export function deciderAccount(_cfg: AppConfig, _seam?: DeciderSeam): HelperAccount | null {
+  return null;
 }
 
 export function deciderConfigured(cfg: AppConfig): boolean {
@@ -217,15 +214,8 @@ export function deciderPatchKey(
 }
 
 /** The account a key check uses: a draft at the provider named (else the old provider choice), or the one in use. */
-function checkAccount(cfg: AppConfig, input: { key?: string; provider?: DeciderProvider; accountId?: string }): HelperAccount | null {
-  const draft = input.key?.trim();
-  if (!draft && !input.provider) return deciderAccount(cfg, "keyCheck");
-  const provider = input.provider ?? draftProvider(cfg);
-  if (provider === "workersai") return workersAiAccount(cfg, { token: draft, accountId: input.accountId });
-  if (provider === "openrouter") return openrouterAccount(cfg, draft);
-  if (provider === "custom") return customAccount(cfg, draft);
-  if (provider === "gemini") return geminiAccount(cfg);
-  return jevAccount(cfg, draft) ?? includedAccount();
+function checkAccount(_cfg: AppConfig, _input: { key?: string; provider?: DeciderProvider; accountId?: string }): HelperAccount | null {
+  return null;
 }
 
 export interface DeciderDeps {

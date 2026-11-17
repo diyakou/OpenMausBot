@@ -25,6 +25,7 @@ export const API_KEY_FLEET: InstanceConfigMap = {
 // Google retired Gemini CLI for the free/Pro/Ultra tiers on 2026-06-18; enterprise licences restore it with
 // `{"instances": {"gemini": {"driver": "geminiAgent"}}}`.
 export const DEFAULT_FLEET: InstanceConfigMap = {
+  houshiar: { driver: "openai-compat", displayName: "Houshiar", access: "api", config: { url: "https://api.houshiar-ai.ir/v1", apiKeyEnv: "HOUSHIAR_API_KEY" } },
   grok: { driver: "grokAgent" },
   kimi: { driver: "kimiAgent" },
   droid: { driver: "droidAgent" },
@@ -67,6 +68,7 @@ const CUSTOM_ONLY = {
 
 /** Added to a saved fleet that holds a product engine (claude, grok or codex), when it lacks them. */
 export const PRODUCT_FLEET_ADDITIONS = {
+  houshiar: DEFAULT_FLEET.houshiar!,
   chatgpt: { driver: "codex", displayName: "ChatGPT plan", config: { authMode: "chatgpt-plan" } },
   cursor: { driver: "cursorAgent" },
   githubCopilot: { driver: "copilotAgent" },

@@ -56,7 +56,7 @@ const localFacts = ({ bytes, parameters, quantization, tools, vision }: OllamaMo
 const DEFAULT_KEY_ENV = "OPENAI_COMPAT_API_KEY";
 /** A provider's own key: such an instance never falls back to the workspace OpenAI-compatible key, URL,
  * model or routing. */
-const OWN_KEY_ENVS = new Set(["OMB_OPENAI_API_KEY", "OMB_OPENROUTER_API_KEY"]);
+const OWN_KEY_ENVS = new Set(["OMB_OPENAI_API_KEY", "OMB_OPENROUTER_API_KEY", "HOUSHIAR_API_KEY"]);
 
 const OPENAI_MODELS: ModelCatalog = {
   default: "gpt-5",
@@ -161,7 +161,7 @@ function decodeConfig(raw: unknown): OpenAICompatConfig {
     ...(config.tools !== undefined ? { tools: config.tools as boolean } : {}),
     ...(config.managedModels ? { managedModels: config.managedModels as string[] } : {}),
     ...(isReplyWait(config.replyWaitMinutes) ? { replyWaitMinutes: config.replyWaitMinutes } : {}),
-    url: (typeof config.url === "string" && config.url ? config.url : envUrl || "https://openrouter.ai/api/v1")
+    url: (config.apiKeyEnv === "HOUSHIAR_API_KEY" ? "https://api.houshiar-ai.ir/v1" : typeof config.url === "string" && config.url ? config.url : envUrl || "https://openrouter.ai/api/v1")
       .replace(/\/+$/, ""),
     apiKeyEnv: typeof config.apiKeyEnv === "string" && config.apiKeyEnv
       ? config.apiKeyEnv
@@ -214,7 +214,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
     const missingKey = !ownKeyVariable || OWN_KEY_ENVS.has(config.apiKeyEnv)
       ? "No API key — open Settings → AI → Providers."
       : `no API key — set ${config.apiKeyEnv} or add it to the instance config`;
-    const seeded = config.catalog === "openai" ? OPENAI_MODELS : isOllamaServer(config) ? NO_MODELS : DEFAULT_MODELS;
+    const seeded = config.catalog === "openai" ? OPENAI_MODELS : config.apiKeyEnv === "HOUSHIAR_API_KEY" || isOllamaServer(config) ? NO_MODELS : DEFAULT_MODELS;
     let catalog: ModelCatalog = config.managedModels
       ? { default: config.managedModels[0], options: config.managedModels.map(id => ({ id, label: id })) }
       : config.model

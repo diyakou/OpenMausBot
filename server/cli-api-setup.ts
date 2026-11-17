@@ -1,5 +1,6 @@
 // Stateless onboarding probes: the caller owns consent for the metered call; credentials and replies are never logged.
 export const API_ENDPOINTS = [
+  { id: "houshiar", label: "Houshiar", url: "https://api.houshiar-ai.ir/v1", keyUrl: "https://api.houshiar-ai.ir" },
   { id: "openai", label: "OpenAI API", url: "https://api.openai.com/v1", keyUrl: "https://platform.openai.com/api-keys" },
   { id: "openrouter", label: "OpenRouter", url: "https://openrouter.ai/api/v1", keyUrl: "https://openrouter.ai/settings/keys" },
   { id: "groq", label: "Groq", url: "https://api.groq.com/openai/v1", keyUrl: "https://console.groq.com/keys" },

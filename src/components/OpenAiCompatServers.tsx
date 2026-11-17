@@ -19,6 +19,7 @@ const EDIT_LABEL = "flex flex-col gap-1 text-[12px] leading-4 text-ink-secondary
 const ICON_BUTTON = "ui-icon-button shrink-0 hover:text-ink";
 /** Google's Gemini API speaks the OpenAI protocol here; the key comes from Google AI Studio. */
 export const GEMINI_PRESET = { name: "Google Gemini", url: "https://generativelanguage.googleapis.com/v1beta/openai" } as const;
+export const HOUSHIAR_PRESET = { name: "Houshiar", url: "https://api.houshiar-ai.ir/v1" } as const;
 
 /** The server accepts at most this many model IDs per server, each up to this many characters. */
 const MODEL_ID_LIMITS = { count: 64, length: 200 } as const;
@@ -246,6 +247,9 @@ function AddedServers({ servers }: { servers: ReturnType<typeof addedServers> })
           className="ui-button self-end"
         >
           {t("apiInstances.geminiPreset")}
+        </button>
+        <button type="button" onClick={() => { setName(HOUSHIAR_PRESET.name); setUrl(HOUSHIAR_PRESET.url); }} disabled={busy !== null} className="ui-button self-end">
+          Houshiar
         </button>
         {url.trim() === GEMINI_PRESET.url && <p className="text-[12px] leading-4 text-ink-secondary">{t("apiInstances.geminiKeyHint")}</p>}
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("apiInstances.name")} aria-label={t("apiInstances.name")}

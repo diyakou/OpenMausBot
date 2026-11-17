@@ -147,9 +147,8 @@ export function imageSlotConfigured(cfg: ImageCredentials, slot: ImageSlot): boo
   return Boolean(PROVIDERS[slot.provider].key(cfg)?.trim() && slot.model);
 }
 
-export function imageGenerationReady(cfg: ImageCredentials): boolean {
-  const { primary, fallback } = imageSlots(cfg);
-  return imageSlotConfigured(cfg, primary) || Boolean(fallback && imageSlotConfigured(cfg, fallback));
+export function imageGenerationReady(_cfg: ImageCredentials): boolean {
+  return false;
 }
 
 /** The image API returns base64 JSON, so a byte cap on the untrusted body is the real memory boundary. */
@@ -202,6 +201,7 @@ export async function generateImageWith(
   timeoutMs = IMAGE_GENERATION_TIMEOUT_MS,
   cancel?: AbortSignal,
 ): Promise<GeneratedImage> {
+  if (!imageGenerationReady(cfg)) fail("Image generation is unavailable: no Houshiar image protocol is configured", 409);
   const provider = PROVIDERS[slot.provider];
   if (!imageSlotConfigured(cfg, slot)) fail(provider.missing, 409, true);
 
