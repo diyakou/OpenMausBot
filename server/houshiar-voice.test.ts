@@ -5,10 +5,10 @@ function setup() {
   const events: unknown[] = [];
   const sent: unknown[] = [];
   const socket = {
-    readyState: 1, onopen: null, onmessage: null, onerror: null, onclose: null,
+    readyState: 1 as const, onopen: null, onmessage: null, onerror: null, onclose: null,
     send(data: string) { sent.push(JSON.parse(data)); }, close: vi.fn(),
   };
-  const voice = new HoushiarVoice("secret", (event) => events.push(event), () => socket as unknown as WebSocket);
+  const voice = new HoushiarVoice("secret", (event) => events.push(event), () => socket);
   const receive = (event: unknown) => (socket.onmessage as unknown as (e: { data: string }) => void)({ data: JSON.stringify(event) });
   return { voice, socket, receive, events, sent };
 }
