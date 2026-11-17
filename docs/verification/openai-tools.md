@@ -210,3 +210,17 @@ The fixture also holds the Boat readiness response: the execution stays busy,
 `wait` cannot report it settled, and Stop prevents dispatch when the response
 arrives. Readiness is part of generation-owned setup, not an untracked wait
 before turn admission.
+
+
+## Houshiar streaming failures
+
+```sh
+pnpm exec vitest run server/drivers/openai-chat-stream-retry.test.ts server/drivers/retry.test.ts server/drivers/openai-chat-protocol.test.ts
+```
+
+The synthetic SSE responses include the gateway's `NineRouter stream failed.`
+error. Houshiar retries three times, with the shared 1, 3 and 8 second backoff
+and jitter, before a final failure. Authentication errors, interrupted turns,
+already streamed replies, and previously executed tools retain their retry
+guards. These tests use fixture credentials and intercepted requests; they
+never contact a real gateway.

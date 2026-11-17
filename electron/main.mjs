@@ -117,6 +117,7 @@ import { createCompanyBackups } from "./company-backups.mjs";
 import { createCompanyBackupSchedule } from "./company-backup-schedule.mjs";
 import { installServerSessions, reportOwnListeners } from "./server-session.mjs";
 
+app.setName("HoshAgent");
 if (app.isPackaged) app.setPath("userData", path.join(app.getPath("appData"), "OpenMausBot"));
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;

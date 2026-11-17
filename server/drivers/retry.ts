@@ -32,6 +32,7 @@ export interface ErrorClassification {
 }
 
 const TRANSIENT_PATTERNS: Array<{ pattern: RegExp; reason: TransientReason }> = [
+  { pattern: /\bNineRouter stream failed\b/i, reason: "server_error" },
   { pattern: /\b(?:429|rate.?limit|too many requests)\b/i, reason: "rate_limited" },
   { pattern: /\boverloaded\b|\bcapacity\b/i, reason: "overloaded" },
   { pattern: /\b5\d{2}\b|\binternal server error\b|\binternal service failure\b|\bServiceUnavailableError\b|\bbad gateway\b|\bservice unavailable\b/i, reason: "server_error" },

@@ -97,10 +97,12 @@ export function refusedToolCallFailure(error: RejectedToolCallError, earlierStep
   return `The model ${what}. ${next} Provider: ${words.slice(0, 200)}`;
 }
 
-export function completionError(json: ProviderBody, label: string): ChatProtocolError | null {
+export function completionError(json: ProviderBody, label: string): Error | null {
   const message = providerError(json);
   if (!message) return null;
   const text = `provider returned a ${label}: ${message.slice(0, 200)}`;
   const refusal = toolCallRefusal(json.error);
-  return refusal ? new RejectedToolCallError(text, refusal) : new ChatProtocolError(text);
+  const code = object(json.error)?.code;
+  return refusal ? new RejectedToolCallError(text, refusal)
+    : new Error(text, { cause: typeof code === "string" || typeof code === "number" ? String(code) : undefined });
 }

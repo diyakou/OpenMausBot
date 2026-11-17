@@ -414,6 +414,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
       billing: "metered",
       includeUsageInCompleted: true,
       retryScale: Number(process.env.FAKE_OPENAI_COMPAT_RETRY_SCALE ?? "1"),
+      maxAttempts: config.apiKeyEnv === "HOUSHIAR_API_KEY" ? 4 : undefined,
       nativeLog: {
         source: "openai-compat.chat.completions",
         outgoing: (_turn, messages, model, tools) => ({

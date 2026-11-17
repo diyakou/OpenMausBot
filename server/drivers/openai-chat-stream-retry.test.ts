@@ -25,7 +25,7 @@ const answer = () => sse('data: {"choices":[{"index":0,"delta":{"content":"hi"}}
   + 'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n');
 
 /** `bodies` is one SSE response per chat completion; the last repeats for any further attempt. */
-async function runTurn(bodies: Array<() => Response>): Promise<{ events: RuntimeEvent[]; requests: number }> {
+async function runTurn(bodies: Array<() => Response>, houshiar = false): Promise<{ events: RuntimeEvent[]; requests: number }> {
   let chatRequests = 0;
   vi.stubGlobal("fetch", vi.fn(async (url: string | URL) =>
     String(url).endsWith("/chat/completions")
@@ -33,7 +33,7 @@ async function runTurn(bodies: Array<() => Response>): Promise<{ events: Runtime
       : new Response("", { status: 404 })));
   const instance = await OpenAICompatDriver.create({
     instanceId: "compat", displayName: "Compat", enabled: true,
-    config: OpenAICompatDriver.decodeConfig({ url: "https://compat.example/v1", apiKeyEnv: "COMPAT_API_KEY", model: "compat-m3" }),
+    config: OpenAICompatDriver.decodeConfig({ url: "https://compat.example/v1", apiKeyEnv: "COMPAT_API_KEY", model: "compat-m3", ...(houshiar ? { apiKeyEnv: "HOUSHIAR_API_KEY", key: "fixture-key" } : {}) }),
     environment: { COMPAT_API_KEY: "secret" },
   });
   const events: RuntimeEvent[] = [];
@@ -132,4 +132,31 @@ describe("createOpenAIChatRuntime stream truncation retry", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 20_000);
+});
+
+
+describe("Houshiar upstream streaming errors", () => {
+  const failed = () => sse('data: {"error":{"message":"NineRouter stream failed."}}\n\n');
+  it("automatically recovers after three failures without asking for manual Retry", async () => {
+    const { events, requests } = await runTurn([failed, failed, failed, answer], true);
+    expect(requests).toBe(4);
+    expect(events.filter((event) => event.type === "turn.retrying").map((event) => event.type === "turn.retrying" && event.attempt)).toEqual([1, 2, 3]);
+    expect(events.at(-1)).toMatchObject({ type: "turn.completed", ok: true });
+    expect(events.some((event) => event.type === "runtime.error")).toBe(false);
+  });
+  it("stops after four unsuccessful requests", async () => {
+    const { events, requests } = await runTurn([failed], true);
+    expect(requests).toBe(4);
+    expect(events.at(-1)).toMatchObject({ type: "turn.completed", ok: false });
+  });
+  it("does not retry an authentication error even with a generic gateway message", async () => {
+    const { events, requests } = await runTurn([() => sse('data: {"error":{"code":401,"message":"NineRouter stream failed."}}\n\n')], true);
+    expect(requests).toBe(1);
+    expect(events.some((event) => event.type === "turn.retrying")).toBe(false);
+  });
+  it("does not duplicate an answer that has already started streaming", async () => {
+    const { events, requests } = await runTurn([() => sse('data: {"choices":[{"delta":{"content":"partial"}}]}\n\ndata: {"error":{"message":"NineRouter stream failed."}}\n\n'), answer], true);
+    expect(requests).toBe(1);
+    expect(events.some((event) => event.type === "turn.retrying")).toBe(false);
+  });
 });
