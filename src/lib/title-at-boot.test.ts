@@ -12,6 +12,7 @@ describe("the window's name at boot", () => {
     const fetch = main.indexOf("bootstrapBrand()");
     expect(title).toBeGreaterThan(-1);
     expect(fetch).toBeGreaterThan(title);
-    expect(PRODUCT_NAME).toBe("MausBot");
+    const index = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+    expect(index).toContain(`<title>${PRODUCT_NAME}</title>`);
   });
 });

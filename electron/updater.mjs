@@ -3,7 +3,7 @@
 import { app, clipboard, ipcMain } from "electron";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   HAND_OFF_PACKAGE_TYPES,
   linuxPackageType,
@@ -182,7 +182,7 @@ export function attachUpdaterWindow(mainWindow) {
 
 /** `signals` (quietSignals): what tells a quiet moment; without them a downloaded update installs only on Restart or quit. */
 export function startUpdater(signals = null) {
-  if (!app.isPackaged) {
+  if (!app.isPackaged || (process.platform === "win32" && existsSync(join(dirname(process.execPath), "msi-install.marker")))) {
     updaterCoordinator = null;
     setState({ status: "idle" });
     return;

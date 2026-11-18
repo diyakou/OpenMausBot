@@ -1,4 +1,3 @@
-import { HoushiarSetup } from "../HoushiarSetup";
 import { SettingsFoldRow, SettingsRows } from "../SettingsPrimitives";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Search } from "lucide-react";
@@ -169,7 +168,6 @@ export function KeysPage({ bare = false, exclude = [] }: { bare?: boolean; exclu
   if (bare) {
     return (
       <div ref={pageRef} data-keys-page="">
-        <HoushiarSetup />
         {/* The key rows inside lead with their provider's mark, so every row of this card keeps the 32 px slot column
             (empty on the fold rows), and the card has one text edge and one divider inset (§6.5). */}
         <SettingsRows icons>
@@ -192,7 +190,6 @@ export function KeysPage({ bare = false, exclude = [] }: { bare?: boolean; exclu
   }
   return (
     <div ref={pageRef} data-keys-page className="flex flex-col gap-4">
-      <HoushiarSetup />
       <p className="text-[13px] leading-[18px] text-ink-secondary">{t("settings.connections.subtitle")}</p>
       <div className="flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] focus-within:ring-2 focus-within:ring-focus/60">
         <Search size={15} aria-hidden="true" className="shrink-0 text-ink-secondary" />

@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 import { linuxDisablesGpu } from "../electron/linux-gpu.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const expectedTitle = readFileSync(path.join(root, "index.html"), "utf8").match(/<title>([^<]+)<\/title>/)?.[1];
+if (!expectedTitle) throw new Error("The renderer has no default title in index.html");
 const wayland = process.env.OMB_SMOKE_WAYLAND === "1";
 const hardDeath = process.env.OMB_SMOKE_HARD_DEATH === "1";
 const bundled = process.env.OMB_SMOKE_BUNDLED_CUA === "1";
@@ -286,7 +288,9 @@ try {
   if (health?.app !== "openmausbot" || health.static !== true) {
     throw new Error(`unexpected embedded health response: ${JSON.stringify(health)}`);
   }
-  if (!/\bMausBot\b/.test(String(title))) throw new Error(`unexpected renderer title: ${title}`);
+  if (String(title).replace(/^\(\d+\) /, "") !== expectedTitle) {
+    throw new Error(`unexpected renderer title: ${title} (expected ${expectedTitle})`);
+  }
   if (capabilities.host.platform !== "linux") throw new Error("renderer did not report Linux");
   if (capabilities.host.session !== (wayland ? "wayland" : "x11")) {
     throw new Error(`renderer did not report the ${wayland ? "Wayland" : "X11"} contract`);

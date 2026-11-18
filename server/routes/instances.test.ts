@@ -374,6 +374,8 @@ describe("Houshiar key setup", () => {
     expect(detected).toEqual([{ key: "fixture-houshiar-key", url: "https://api.houshiar-ai.ir/v1", catalog: undefined }]);
     const refused = await fetch(`${base}/api/instances/houshiar`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key", url: "https://other.example/v1" }) });
     expect(refused.status).toBe(400);
+    const malformed = await fetch(`${base}/api/instances/houshiar`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiKey: "fixture\nkey" }) });
+    expect(malformed.status).toBe(400);
     expect(persisted).toHaveLength(1);
   });
 });

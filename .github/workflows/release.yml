@@ -335,12 +335,14 @@ jobs:
         run: |
           v=$(node -p "require('./package.json').version")
           cp "release/HoshAgent-$v-setup.exe" release/HoshAgent-setup.exe
+          test -s "release/HoshAgent-$v-x64.msi"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-release
           path: |
             release/*.exe
             release/*.exe.blockmap
+            release/*.msi
             release/latest.yml
           if-no-files-found: error
           retention-days: 7
@@ -467,6 +469,7 @@ jobs:
             "HoshAgent-$VERSION-arm64.zip.blockmap"
             "HoshAgent-$VERSION-setup.exe"
             "HoshAgent-$VERSION-setup.exe.blockmap"
+            "HoshAgent-$VERSION-x64.msi"
             "HoshAgent-$VERSION-x64.dmg"
             "HoshAgent-$VERSION-x64.dmg.blockmap"
             "HoshAgent-$VERSION-x64.zip"

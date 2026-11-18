@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   package:
-    name: NSIS installer
+    name: Windows installers
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -57,12 +57,11 @@ jobs:
         run: |
           echo "version: $(node -p "require('./package.json').version")"
           echo "commit:  $(git rev-parse HEAD)"
-          ls -lh release/*.exe release/*.yml 2>/dev/null || true
+          ls -lh release/*.exe release/*.msi release/*.yml
+          v=$(node -p "require('./package.json').version")
+          test -s "release/HoshAgent-$v-x64.msi"
       # Three things silently produce an installer that builds fine and is
-      # broken in the field, and none of them can be checked from the Mac the
-      # release is cut on — the artifact carries only the .exe. So assert them
-      # here, where the unpacked tree exists, and fail the build instead of
-      # shipping it.
+      # broken in the field. Check the unpacked tree before uploading installers.
       - name: verify the packaged tree
         shell: bash
         run: |
@@ -134,6 +133,7 @@ jobs:
           path: |
             release/*.exe
             release/*.exe.blockmap
+            release/*.msi
             release/latest.yml
           if-no-files-found: error
           retention-days: 14

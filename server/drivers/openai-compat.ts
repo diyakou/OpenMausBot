@@ -335,7 +335,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
             label: openRouter ? freeLabel(label, row) : label,
             ...(contextWindow ? { contextWindow } : {}),
             ...(takesEffort(id, row) ? { variants: EFFORT_CHOICES } : {}),
-            ...(config.catalog === "openai" ? {} : { custom: true }),
+            ...(config.catalog === "openai" || config.apiKeyEnv === "HOUSHIAR_API_KEY" ? {} : { custom: true }),
           });
         }
         if (!options.length) return;
@@ -397,6 +397,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
       return {
         ...claude,
         get models() { return catalog; },
+        get modelsUnconfirmed() { return Boolean(apiKey) && catalog.options.length === 0; },
         refreshModels: async () => {
           if (!apiKey) return;
           await fetchModels();

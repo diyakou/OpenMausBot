@@ -10967,5 +10967,8 @@
   "houshiar.connecting": "Connecting?",
   "houshiar.connected": "Houshiar connected",
   "houshiar.failed": "Could not save the Houshiar key. Try again.",
-  "houshiar.unreachable": "Key saved, but Houshiar did not return its models. Check your key and try again."
+  "houshiar.busy": "Wait for active Houshiar replies or AI settings changes to finish, then try again.",
+  "houshiar.invalid": "Enter the Houshiar model API key.",
+  "houshiar.refresh": "Reload models",
+  "houshiar.unreachable": "Key saved. Houshiar did not return its models. Reload the list or enter a new key."
 }

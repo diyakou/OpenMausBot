@@ -25,6 +25,7 @@ import {
 import { migrateWorkspaceConfigFile, workspaceCredentialEnv } from "./workspace-credentials.mjs";
 import { evictStartupCacheOnce } from "./startup-cache-eviction.mjs";
 import { activateExistingWindow, releaseSingleInstanceLock } from "./single-instance.mjs";
+import { createDesktopLaunchLog } from "./desktop-launch-log.mjs";
 import { bootFailureMessage, listeningSignal, pollServerIdentity, SERVER_BOOT_TIMEOUT_MS, SERVER_LISTENING_GRACE_MS } from "./server-boot-probe.mjs";
 import { createServerSupervisor } from "./server-supervisor.mjs";
 import { serverChildLaunch } from "./server-child-launch.mjs";
@@ -254,6 +255,7 @@ app.on("open-url", (event, url) => {
 });
 
 app.on("second-instance", (_event, commandLine) => {
+  recordDesktopLaunch();
   if (takeOrganizationDeepLink(commandLine)) {
     queueOrganizationEntry("openmausbot://organization");
     return;
@@ -507,6 +509,9 @@ function slog(line) {
   } catch {
   }
 }
+
+const recordDesktopLaunch = createDesktopLaunchLog(LOG_DIR, (error) => slog(`desktop launch log: ${error.code ?? "unknown error"}`));
+recordDesktopLaunch();
 
 // Synchronous: a fatal exception can end Electron before an async write flushes.
 // uncaughtExceptionMonitor observes Node's fatal path without handling it, so the process still exits.

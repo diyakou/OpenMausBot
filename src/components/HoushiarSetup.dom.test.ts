@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "@/lib/i18n";
+import { ApiError } from "@/state/api";
 
 const fixture = vi.hoisted(() => ({ api: vi.fn(), dispatch: vi.fn() }));
 vi.mock("@/state/store", () => ({ api: fixture.api, useStore: () => ({ state: { instances: [] }, dispatch: fixture.dispatch }) }));
@@ -56,4 +57,22 @@ it("reports an unreadable catalog as a warning instead of a connected status", a
   await submit();
   expect(container.querySelector("[role=alert]")!.textContent).toContain("did not return its models");
   expect(container.querySelector("[role=status]")).toBeNull();
+});
+
+it("reloads the catalog after saving without asking for the key again", async () => {
+  fixture.api.mockResolvedValueOnce({ instances: [] }).mockResolvedValueOnce({
+    instances: [{ instanceId: "houshiar", models: { options: [{ id: "auto" }, { id: "fixture-model" }] } }],
+  });
+  await submit();
+  expect(container.querySelector("input")!.value).toBe("");
+  await act(async () => { container.querySelector<HTMLButtonElement>('button[type="button"]')!.click(); });
+  expect(fixture.api).toHaveBeenLastCalledWith("/api/instances/houshiar/refresh-models", { method: "POST", body: "{}" });
+  expect(container.querySelector("[role=status]")!.textContent).toBe("Houshiar connected");
+});
+
+it("explains why an active turn blocks changing the key without exposing the server response", async () => {
+  fixture.api.mockRejectedValue(new ApiError("fixture-secret", 409));
+  await submit();
+  expect(container.querySelector("[role=alert]")!.textContent).toContain("Wait for active Houshiar replies");
+  expect(container.textContent).not.toContain("fixture-secret");
 });

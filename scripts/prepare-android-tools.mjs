@@ -26,7 +26,10 @@ try {
     cpSync(override, staged, { recursive: true });
   } else {
     const url = `https://dl.google.com/android/repository/platform-tools-latest-${archive}.zip`;
-    const response = await fetch(url);
+    const direct = await fetch(url);
+    const response = direct.status === 404
+      ? await fetch(`https://redirector.gvt1.com/edgedl/android/repository/platform-tools-latest-${archive}.zip`)
+      : direct;
     if (!response.ok) throw new Error(`could not download Android Platform Tools: HTTP ${response.status}`);
     const zip = join(temporary, basename(new URL(url).pathname));
     writeFileSync(zip, Buffer.from(await response.arrayBuffer()));

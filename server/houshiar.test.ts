@@ -56,6 +56,7 @@ it("loads authenticated models before the Houshiar instance becomes available", 
     expect(childCreate.mock.calls[0][0].environment).toMatchObject({ HTTPS_PROXY: "", https_proxy: "", NO_PROXY: "*", NODE_USE_ENV_PROXY: "0" });
     expect(instance.models.options.map((row) => row.id)).toEqual(["hoshiar/model-1[1m][x2]", "hoshiar/model-2"]);
     expect(instance.models.options[0].label).toBe("Fixture model");
+    expect(instance.models.options[0].custom).toBeUndefined();
     expect(requested).toEqual(["https://api.houshiar-ai.ir/v1/models"]);
     models.push({ id: "hoshiar/new-model[x3]" });
     await instance.refreshModels?.();

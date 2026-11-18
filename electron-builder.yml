@@ -25,6 +25,7 @@ directories:
 # electron-builder makes copied directories group-writable by default. The
 # Linux CUA trust boundary requires root-owned package ancestors to be 0755.
 afterPack: ./scripts/after-pack.mjs
+msiProjectCreated: ./scripts/mark-msi-install.mjs
 
 # The app is three self-contained pieces, none needing node_modules at
 # runtime: the Electron main/preload (plain .mjs/.cjs), the built UI
@@ -166,6 +167,8 @@ win:
   target:
     - target: nsis
       arch: x64
+    - target: msi
+      arch: x64
     - target: zip
       arch: x64
   icon: build/icon.ico
@@ -198,6 +201,10 @@ nsis:
   perMachine: false
   shortcutName: HoshAgent
   artifactName: HoshAgent-${version}-setup.${ext}
+
+msi:
+  perMachine: false
+  shortcutName: HoshAgent
 
 linux:
   target:

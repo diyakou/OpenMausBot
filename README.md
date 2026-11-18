@@ -369,7 +369,7 @@ Package the desktop application:
 
 ```sh
 pnpm package:mac      # macOS: DMG + ZIP; requires Swift/Xcode tools
-pnpm package:win      # Windows: installer + ZIP
+pnpm package:win      # Windows x64: EXE, MSI, and ZIP
 pnpm package:linux    # Ubuntu x64: .deb + AppImage + verified CUA runtime
 ```
 
@@ -420,7 +420,7 @@ pnpm typecheck     # app + server
 pnpm test          # unit, driver, API, and desktop capability tests
 pnpm build         # typecheck + production build
 pnpm check:electron # syntax-check Electron main/preload files
-pnpm package:win   # Windows installer + zip → release/
+pnpm package:win   # Windows x64 EXE, MSI, and ZIP → release/
 pnpm package:linux # Ubuntu x64 .deb + AppImage → release/
 ```
 

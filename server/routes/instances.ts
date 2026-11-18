@@ -525,6 +525,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
           if (!ownerOrAdmin(auth)) return json(res, 403, { error: "Only the owner or an admin can change a server's address or key." });
           if (!isAddedEndpoint(instanceId, entry) && instanceId !== "houshiar") return json(res, 400, { error: "The base URL and key can be changed here for added OpenAI-compatible servers only." });
           if (instanceId === "houshiar" && body.url !== undefined && body.url !== "https://api.houshiar-ai.ir/v1") return json(res, 400, { error: "Houshiar has a fixed API address." });
+          if (instanceId === "houshiar" && body.apiKey && /\p{Cc}/u.test(body.apiKey)) return json(res, 400, { error: "Enter the Houshiar model API key." });
           const changed = changeEndpointAddress(instances, instanceId, { url: body.url, apiKey: body.apiKey });
           if ("error" in changed) return json(res, changed.status, { error: changed.error });
           // A model list read from the server's /models is read again from the new address or with the new key.
