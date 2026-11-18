@@ -1,3 +1,4 @@
+import { fetchHoushiarDirect } from "./houshiar-fetch.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { InstanceConfig, InstanceConfigMap } from "./contracts.ts";
@@ -90,7 +91,7 @@ export function changeEndpointAddress(
 export async function endpointModelsReadable(config: { url: string; key: string; catalog?: unknown }, timeoutMs = 8_000): Promise<boolean> {
   if (isOllamaServer(config)) return ["ready", "no-models"].includes((await probeOllama(config.url, { key: config.key, timeoutMs })).state);
   try {
-    const response = await fetch(`${config.url}/models`, {
+    const response = await (config.url === "https://api.houshiar-ai.ir/v1" ? fetchHoushiarDirect : fetch)(`${config.url}/models`, {
       headers: { authorization: `Bearer ${config.key}` }, redirect: "error", signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return false;

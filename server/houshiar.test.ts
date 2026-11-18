@@ -1,3 +1,5 @@
+import { ClaudeDriver } from "./drivers/claude.ts";
+import { CLAUDE_MODEL_ID } from "./drivers/claude-model-extras.ts";
 import { withEndpointUrls } from "./openai-compat-endpoints.ts";
 import { instanceConfigs, persistableInstanceConfigs } from "./config.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +24,7 @@ it("keeps Houshiar independent of workspace provider defaults", () => {
 });
 
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 it("returns the Houshiar endpoint to the model picker without exposing credentials", () => {
   const instances = withEndpointUrls([{ instanceId: "houshiar" }], instanceConfigs({ instances: { houshiar: { driver: "openai-compat", config: { key: "fixture-secret" } } } }));
@@ -32,11 +34,13 @@ it("returns the Houshiar endpoint to the model picker without exposing credentia
 
 it("loads authenticated models before the Houshiar instance becomes available", async () => {
   const requested: string[] = [];
+  const childCreate = vi.spyOn(ClaudeDriver, "create");
+  vi.stubEnv("HTTPS_PROXY", "http://fixture-proxy:9");
   vi.stubGlobal("fetch", vi.fn(async (url, init) => {
     requested.push(String(url));
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer fixture-key");
     return Response.json({ data: [
-      { id: "hoshiar/model-1", name: "Fixture model", supported_endpoints: ["/v1/messages"] },
+      { id: "hoshiar/model-1[x2]", name: "Fixture model", supported_endpoints: ["/v1/messages"] },
       { id: "hoshiar/model-2" },
       { id: "chat-only", supported_endpoints: ["/v1/chat/completions"] },
     ] });
@@ -47,7 +51,8 @@ it("loads authenticated models before the Houshiar instance becomes available", 
   });
   try {
     expect(instance.driverKind).toBe("claudeAgent");
-    expect(instance.models.options.map((row) => row.id)).toEqual(["hoshiar/model-1", "hoshiar/model-2"]);
+    expect(childCreate.mock.calls[0][0].environment).toMatchObject({ HTTPS_PROXY: "", https_proxy: "", NO_PROXY: "*", NODE_USE_ENV_PROXY: "0" });
+    expect(instance.models.options.map((row) => row.id)).toEqual(["hoshiar/model-1[x2]", "hoshiar/model-2"]);
     expect(requested).toEqual(["https://api.houshiar-ai.ir/v1/models"]);
   } finally { await instance.dispose(); }
 });
@@ -55,4 +60,12 @@ it("loads authenticated models before the Houshiar instance becomes available", 
 it("adopts a key entered in the generic form only when it was saved for Houshiar", () => {
   const cfg = instanceConfigs({ openaiCompat: { url: "https://api.houshiar-ai.ir/v1", key: "fixture-migrated-key" } });
   expect(cfg.houshiar.config).toMatchObject({ key: "fixture-migrated-key", apiKeyEnv: "HOUSHIAR_API_KEY" });
+});
+
+
+it.each(["hosh/claude-opus-5-5[x2]", "hosh/model[x12]", "hosh/model[x1.5]", "claude-opus-5[1m]"])("accepts the gateway model id unchanged: %s", (id) => {
+  expect(CLAUDE_MODEL_ID.test(id)).toBe(true);
+});
+it.each(["--model", "hosh/model[x2];echo", "hosh/model[x2] extra", "hosh/model[$(cmd)]", "hosh/model[x0]", "hosh/model[x2]\n"])("rejects malformed model ids: %s", (id) => {
+  expect(CLAUDE_MODEL_ID.test(id)).toBe(false);
 });

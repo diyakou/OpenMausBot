@@ -227,3 +227,18 @@ Houshiar key it lists only Houshiar, with no models and no working engine. A doc
 result of `ok: false` is expected in that signed-out fixture. This does not prove
 real Houshiar authentication. Browser screenshot verification also requires the
 pinned Chrome download to succeed.
+
+
+### Direct Houshiar connections
+
+```sh
+pnpm exec vitest run server/houshiar-fetch.test.ts server/houshiar.test.ts electron/system-proxy.test.mjs
+```
+
+The network fixture configures a synthetic global proxy and confirms the model
+request reaches only a disposable loopback API, with zero proxy requests.
+Credential forwarding checks confirm that Houshiar's Claude subprocess receives
+empty proxy variables and `NO_PROXY=*`. Gateway model IDs with billing suffixes
+such as `[x2]` remain unchanged through catalog loading. Desktop Chromium uses
+`no-proxy-server` and a direct default session; desktop server children receive
+the same proxy-free environment. These checks do not change OS proxy settings.

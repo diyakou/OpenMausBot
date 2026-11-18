@@ -1,3 +1,5 @@
+import { fetchHoushiarDirect } from "../houshiar-fetch.ts";
+import { directConnectionEnvironment } from "../../electron/direct-network.mjs";
 // Transcript-replay driver for OpenRouter, Groq, Together, llama.cpp, and
 // other endpoints that speak the OpenAI chat-completions contract.
 import { titleCaseModelId, type ModelCatalog, type ProviderDriver } from "../contracts.ts";
@@ -299,7 +301,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
             // Native LM Studio catalog unavailable; try OpenAI-compatible /models below.
           }
         }
-        const response = await fetch(`${config.url}/models`, {
+        const response = await (config.apiKeyEnv === "HOUSHIAR_API_KEY" ? fetchHoushiarDirect : fetch)(`${config.url}/models`, {
           headers: { authorization: `Bearer ${apiKey}` },
           signal: AbortSignal.timeout(8_000),
         });
@@ -385,7 +387,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
         ...input,
         config: ClaudeDriver.decodeConfig({ requireApiKey: true, configDir: join(DATA_DIR, "providers", "houshiar"), endpointModels: models.length ? models : ["auto"] }),
         environment: {
-          ...Object.fromEntries(Object.entries(input.environment).filter(([key]) => !CLAUDE_ACCOUNT_ENV_KEYS.some((credential) => credential === key))),
+          ...directConnectionEnvironment(Object.fromEntries(Object.entries(input.environment).filter(([key]) => !CLAUDE_ACCOUNT_ENV_KEYS.some((credential) => credential === key)))),
           ANTHROPIC_API_KEY: apiKey,
           ANTHROPIC_BASE_URL: config.url.replace(/\/v1$/, ""),
         },

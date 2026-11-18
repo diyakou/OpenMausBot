@@ -110,13 +110,16 @@ import { askForMicrophone, openPrivacySettings } from "./privacy-settings.mjs";
 import { createHomeWindow, installHomeWindowIpc, HOME_SCREEN_PATH } from "./home-window.mjs";
 import { createTeamProfileSeeds } from "./team-profile-seed.mjs";
 import { createHomePlaces } from "./home-places.mjs"; import { openStartPlace } from "./start-place.mjs"; import { createDesktopRing, installAccounts } from "./accounts-main.mjs"; import { createAddedCloudNotice, installCloudRail, railPlaces } from "./cloud-rail.mjs"; import { createPlaceInboxWatch } from "./place-inbox-watch.mjs"; import { homeLook, otherOwnClouds, withoutOldCloudHome } from "./cloud-list.mjs"; import { installPlaceLook } from "./place-look.mjs"; import { CHROME_RAIL_PATH, createChromeRail } from "./chrome-rail.mjs"; import { openComputerSettings } from "./open-computer-settings.mjs"; import { createPlacesTogether, installPlacesTogether, PLACES_TOGETHER_FILE } from "./places-together.mjs"; import { createBotLinkMain } from "./bot-link-main.mjs";
-import { createWindowStateFile } from "./window-state-file.mjs"; import { createSystemProxyCache } from "./system-proxy.mjs";
+import { directConnectionEnvironment } from "./direct-network.mjs";
+import { createWindowStateFile } from "./window-state-file.mjs";
 import { createEnvironmentsFile, ENVIRONMENTS_SAVE_FAILED } from "./environments-file.mjs";
 import { createOrgLibrary } from "./org-library.mjs";
 import { createCompanyBackups } from "./company-backups.mjs";
 import { createCompanyBackupSchedule } from "./company-backup-schedule.mjs";
 import { installServerSessions, reportOwnListeners } from "./server-session.mjs";
 
+app.commandLine.appendSwitch("no-proxy-server");
+Object.assign(process.env, directConnectionEnvironment(process.env));
 app.setName("HoshAgent");
 if (app.isPackaged) app.setPath("userData", path.join(app.getPath("appData"), "OpenMausBot"));
 
@@ -292,7 +295,7 @@ let companyBackupConfigurationRevision = 0;
 const managedDesktopRelay = createManagedDesktopRelay();
 const includedX = createDesktopIncludedX({ account: () => cloudAccount, server: () => serverProc, log: slog }), includedPages = createDesktopIncludedPages({ account: () => cloudAccount, server: () => serverProc, log: slog }), phoneLinkFact = createPhoneLinkFact({ retired: () => companionTunnelRetired(secureCredentialState?.read() ?? secureCredentials), server: () => (serverReady ? serverProc : null), log: slog }), phonePushAccess = createPhonePushAccessSync({ server: () => (serverReady ? serverProc : null), credentials: () => secureCredentialState?.read() ?? secureCredentials, controlPlane: () => resolveCompanionControlPlaneURL({ isPackaged: app.isPackaged, environment: process.env }), log: slog });
 const cloudPower = createCloudPowerGate({ power: () => cloudAccount?.power() ?? null, wanted: () => Boolean(cloudSync?.running() || computerSharing?.lendingToCloud()) });
-const utilityServerExits = new WeakMap(), systemProxy = createSystemProxyCache(); // A Mac app opened from Finder never gets the shell's proxy.
+const utilityServerExits = new WeakMap();
 const UTILITY_SERVER_STOP_TIMEOUT_MS = 9_500; // the server's shutdown deadline (8 s, server/graceful-shutdown.ts) and its 1 s log flush
 const trustedApprovalMode = createTrustedApprovalModeCoordinator({ randomId: randomUUID, t: (...args) => nativeT(...args) });
 const desktopMutationToken = randomBytes(32).toString("base64url");
@@ -307,7 +310,7 @@ const serverSupervisor = createServerSupervisor({
     serverStartConflictOnly = false;
     slog(`server ready pid=${proc.pid} port=${SERVER_PORT}`);
     void readCloudOfferBrand();
-    syncManagedComposioCredentials(); includedX.serverStarted(); includedPages.serverStarted(); phoneLinkFact.serverStarted(); phonePushAccess.serverStarted(); railChanged(); void systemProxy.refresh();
+    syncManagedComposioCredentials(); includedX.serverStarted(); includedPages.serverStarted(); phoneLinkFact.serverStarted(); phonePushAccess.serverStarted(); railChanged();
     reportOwnListeners(proc);
     orgLibrary?.runtimeReady();
     if (managedDesktop) void managedDesktop.refresh().catch(() => {});
@@ -1113,7 +1116,7 @@ async function startServerOn(port, dataDir = runningDataDir ?? startupEnvironmen
   });
   const childEnv = managedComposioChildEnvironment(composioBrokerUrl(), secureCredentials, {
     // The parent owns the data-dir lease; a child only validates it, so fallback-port children never replace it.
-    ...process.env, ...systemProxy.latest(), ...desktopDataDirLease.utilityServerLeaseEnvironment(),
+    ...directConnectionEnvironment(process.env), ...desktopDataDirLease.utilityServerLeaseEnvironment(),
     OMB_DATA_DIR: dataDir,
     // Fail-closed until this process sends the private connection; never a descriptor inherited from the shell.
     OMB_DESKTOP_PARENT: "1",
@@ -1193,7 +1196,6 @@ async function startServerOn(port, dataDir = runningDataDir ?? startupEnvironmen
 
 async function startServerPackaged() {
   let everyPortForeignOwned = true;
-  await systemProxy.refresh();
   for (let attempt = 0; attempt < 2; attempt++) {
     for (const port of DESKTOP_PORTS) {
       if (desktopShutdownStarted) return false;
@@ -2814,6 +2816,7 @@ setCuaStateListener((connection) => {
 });
 
 app.whenReady().then(async () => {
+  await session.defaultSession.setProxy({ mode: "direct" });
   await evictStartupCacheOnce({
     userData: app.getPath("userData"),
     currentVersion: app.getVersion(),
