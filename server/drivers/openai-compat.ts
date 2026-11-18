@@ -7,6 +7,9 @@ import { lmStudioV1Catalog } from "./local-inject.ts";
 import { isContextName, isOllama, pickedName, serveWithWindow } from "./ollama-context.ts";
 import { isOllamaServer, OLLAMA_PLACEHOLDER_KEY, ollamaOrigin, ollamaUnavailable, onOllamaPort, probeOllama, thinkingEffort, type OllamaModel, type OllamaStatus } from "./ollama.ts";
 import { createOpenAIChatRuntime } from "./openai-chat.ts";
+import { CLAUDE_ACCOUNT_ENV_KEYS, ClaudeDriver } from "./claude.ts";
+import { join } from "node:path";
+import { DATA_DIR } from "../config.ts";
 import {
   freeDefault, freeFallbackCatalog, freeLabel, freeToolModels, freeToolsFirst, isOpenRouterOrigin, openRouterFreeTier,
   withOpenRouterTurns, type OpenRouterModelRow,
@@ -304,6 +307,10 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
         type Row = OpenRouterModelRow & Record<string, unknown> & { name?: unknown; created?: unknown; owned_by?: unknown };
         const json = await response.json() as { data?: Row[] } | Row[];
         let rows = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
+        if (config.apiKeyEnv === "HOUSHIAR_API_KEY") {
+          rows = rows.filter((row) => !Array.isArray(row.supported_endpoints)
+            || row.supported_endpoints.some((endpoint) => typeof endpoint === "string" && /(?:^|\/)messages\/?$/.test(endpoint)));
+        }
         // OpenAI lists its catalog unordered and mixed with non-chat models.
         if (config.catalog === "openai") {
           rows = rows
@@ -371,6 +378,20 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
 
     if (loading && isOllamaServer(config)) await Promise.race([loading, new Promise((done) => { setTimeout(done, OLLAMA_FIRST_LIST_MS).unref(); })]);
 
+    if (config.apiKeyEnv === "HOUSHIAR_API_KEY") {
+      await loading;
+      const models = catalog.options.map((option) => option.id);
+      return ClaudeDriver.create({
+        ...input,
+        config: ClaudeDriver.decodeConfig({ requireApiKey: true, configDir: join(DATA_DIR, "providers", "houshiar"), endpointModels: models.length ? models : ["auto"] }),
+        environment: {
+          ...Object.fromEntries(Object.entries(input.environment).filter(([key]) => !CLAUDE_ACCOUNT_ENV_KEYS.some((credential) => credential === key))),
+          ANTHROPIC_API_KEY: apiKey,
+          ANTHROPIC_BASE_URL: config.url.replace(/\/v1$/, ""),
+        },
+      });
+    }
+
     const runtime = createOpenAIChatRuntime({
       input,
       driverKind: DRIVER_KIND,
@@ -429,7 +450,6 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
         }),
       },
     });
-    if (loading && config.apiKeyEnv === "HOUSHIAR_API_KEY") await loading;
     if (loading && isOllamaServer(config)) {
       const send = runtime.adapter.sendTurn;
       runtime.adapter.sendTurn = async (turn) => { await loading; return send(turn); };

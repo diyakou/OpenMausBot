@@ -35,13 +35,18 @@ it("loads authenticated models before the Houshiar instance becomes available", 
   vi.stubGlobal("fetch", vi.fn(async (url, init) => {
     requested.push(String(url));
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer fixture-key");
-    return Response.json({ data: [{ id: "hoshiar/model-1", name: "Fixture model" }, { id: "hoshiar/model-2" }] });
+    return Response.json({ data: [
+      { id: "hoshiar/model-1", name: "Fixture model", supported_endpoints: ["/v1/messages"] },
+      { id: "hoshiar/model-2" },
+      { id: "chat-only", supported_endpoints: ["/v1/chat/completions"] },
+    ] });
   }));
   const instance = await OpenAICompatDriver.create({
     instanceId: "houshiar", displayName: "Houshiar", enabled: true,
     config: OpenAICompatDriver.decodeConfig({ apiKeyEnv: "HOUSHIAR_API_KEY", key: "fixture-key" }), environment: {},
   });
   try {
+    expect(instance.driverKind).toBe("claudeAgent");
     expect(instance.models.options.map((row) => row.id)).toEqual(["hoshiar/model-1", "hoshiar/model-2"]);
     expect(requested).toEqual(["https://api.houshiar-ai.ir/v1/models"]);
   } finally { await instance.dispose(); }
