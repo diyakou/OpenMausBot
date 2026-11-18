@@ -10,6 +10,7 @@ import { isContextName, isOllama, pickedName, serveWithWindow } from "./ollama-c
 import { isOllamaServer, OLLAMA_PLACEHOLDER_KEY, ollamaOrigin, ollamaUnavailable, onOllamaPort, probeOllama, thinkingEffort, type OllamaModel, type OllamaStatus } from "./ollama.ts";
 import { createOpenAIChatRuntime } from "./openai-chat.ts";
 import { CLAUDE_ACCOUNT_ENV_KEYS, ClaudeDriver } from "./claude.ts";
+import { CLAUDE_MODEL_ID } from "./claude-model-extras.ts";
 import { join } from "node:path";
 import { DATA_DIR } from "../config.ts";
 import {
@@ -325,6 +326,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
           const rawId = typeof row.id === "string" ? row.id : "";
           const id = gemini ? geminiChatModelId(rawId) ?? "" : rawId;
           if (!id || seen.has(id) || isContextName(id)) continue;
+          if (config.apiKeyEnv === "HOUSHIAR_API_KEY" && !CLAUDE_MODEL_ID.test(id)) continue;
           seen.add(id);
           const label = typeof row.name === "string" && row.name.trim() ? row.name : id;
           const contextWindow = advertisedContextWindow(row);
@@ -382,16 +384,25 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
 
     if (config.apiKeyEnv === "HOUSHIAR_API_KEY") {
       await loading;
-      const models = catalog.options.map((option) => option.id);
-      return ClaudeDriver.create({
+      const models = catalog.options.length ? catalog.options.map((option) => option.id) : ["auto"];
+      const claude = await ClaudeDriver.create({
         ...input,
-        config: ClaudeDriver.decodeConfig({ requireApiKey: true, configDir: join(DATA_DIR, "providers", "houshiar"), endpointModels: models.length ? models : ["auto"] }),
+        config: ClaudeDriver.decodeConfig({ requireApiKey: true, configDir: join(DATA_DIR, "providers", "houshiar"), endpointModels: models }),
         environment: {
           ...directConnectionEnvironment(Object.fromEntries(Object.entries(input.environment).filter(([key]) => !CLAUDE_ACCOUNT_ENV_KEYS.some((credential) => credential === key)))),
           ANTHROPIC_API_KEY: apiKey,
           ANTHROPIC_BASE_URL: config.url.replace(/\/v1$/, ""),
         },
       });
+      return {
+        ...claude,
+        get models() { return catalog; },
+        refreshModels: async () => {
+          if (!apiKey) return;
+          await fetchModels();
+          if (catalog.options.length) models.splice(0, models.length, ...catalog.options.map((option) => option.id));
+        },
+      };
     }
 
     const runtime = createOpenAIChatRuntime({

@@ -1,7 +1,7 @@
 import type { ModelCatalog } from "../contracts.ts";
 import { bundledEngineCatalog } from "../model-manifest/bundled.ts";
 
-export const CLAUDE_MODEL_ID = /^[a-z0-9][a-z0-9._:/-]*(?:\[(?:1m|x[1-9]\d*(?:\.\d+)?)\])?(?![\s\S])/i;
+export const CLAUDE_MODEL_ID = /^[a-z0-9][a-z0-9._:/-]*(?:\[1m\])?(?:\[x[1-9]\d*(?:\.\d+)?\])?(?![\s\S])/i;
 export { currentEngineCatalog, withCliVersionGate } from "../model-manifest/manifest.ts";
 const OFFICIAL_CLAUDE_ID = /^claude-[a-z0-9.-]+$/;
 const official = (id: string) => OFFICIAL_CLAUDE_ID.test(id.replace(/\[1m\]$/i, ""));

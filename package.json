@@ -1,7 +1,7 @@
 {
   "name": "openmausbot",
   "private": true,
-  "version": "0.1.173",
+  "version": "0.1.174",
   "description": "HoshAgent is a local-first chat app for running a team of AI agents.",
   "homepage": "https://github.com/diyakou/OpenMausBot",
   "repository": {
