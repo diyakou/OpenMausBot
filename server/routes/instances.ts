@@ -64,6 +64,7 @@ export interface InstanceRouteDeps {
   threadBusy(botId: string, threadId: string): boolean;
   botForThread(botId: string, threadId: string): Pick<{ modelSelection: ModelSelection }, "modelSelection"> | null;
   activeGroupTurnForBot(botId: string): { threadId: string } | null;
+  providerHasLiveTurn(instanceId: string): boolean;
   /** The server's tested-AI record (server/tested-ai.ts): a check there also settles the new-bot default. */
   checkInstance?(instance: ProviderInstance): Promise<EngineCheck>;
   /** Whether an added server lists its models (server/openai-compat-endpoints.ts); replaced in tests. */
@@ -74,7 +75,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
   const {
     store, cfg, registry, sessions, providerAuthSessions, hostedModels, providerConfigBusy, providerInstancesChanging,
     persistProviderInstance, configStatus, broadcast, testCliBinary, cliProbeEnvironment, threadBusy,
-    botForThread, activeGroupTurnForBot,
+    botForThread, activeGroupTurnForBot, providerHasLiveTurn,
   } = deps;
   const detectModels = deps.endpointModelsReadable ?? endpointModelsReadable;
   const describeInstances = async () => hostedModels ? deps.describeInstances()
@@ -477,7 +478,9 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
       const body = parsed.data;
       const instanceId = instancePatch[1];
       if (providerConfigBusy.get()) return json(res, 409, { error: "provider settings are already being updated" });
-      if (busyProviderSelections().some((selection) => selection.instanceId === instanceId)) {
+      const changingHoushiarKey = instanceId === "houshiar" && body.apiKey !== undefined && Object.keys(body).length === 1;
+      if (changingHoushiarKey ? providerHasLiveTurn(instanceId) : busyProviderSelections().some((selection) => selection.instanceId === instanceId)) {
+        if (changingHoushiarKey) console.warn("[Houshiar models] API key update rejected: a live turn is using Houshiar");
         return json(res, 409, { error: "Wait for bots using this account to finish before changing its settings." });
       }
       /** Set when the model list is read again from a new address or with a new key: after the busy guard, so bots on

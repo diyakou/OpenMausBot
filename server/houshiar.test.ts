@@ -3,8 +3,10 @@ import { CLAUDE_MODEL_ID } from "./drivers/claude-model-extras.ts";
 import { withEndpointUrls } from "./openai-compat-endpoints.ts";
 import { instanceConfigs, persistableInstanceConfigs } from "./config.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Headers, Response as UndiciResponse } from "undici";
 import { OpenAICompatDriver } from "./drivers/openai-compat.ts";
 import { DEFAULT_FLEET } from "./instance-fleets.ts";
+import * as houshiarTransport from "./houshiar-fetch.ts";
 
 describe("Houshiar connection", () => {
   it("pins the endpoint and isolates its key from compatible provider overrides", () => {
@@ -42,11 +44,11 @@ it("loads authenticated models before the Houshiar instance becomes available", 
     { id: "bad model" },
   ];
   vi.stubEnv("HTTPS_PROXY", "http://fixture-proxy:9");
-  vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+  vi.spyOn(houshiarTransport, "fetchHoushiarDirect").mockImplementation(async (url, init) => {
     requested.push(String(url));
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer fixture-key");
-    return Response.json({ data: models });
-  }));
+    return new UndiciResponse(JSON.stringify({ data: models }));
+  });
   const instance = await OpenAICompatDriver.create({
     instanceId: "houshiar", displayName: "Houshiar", enabled: true,
     config: OpenAICompatDriver.decodeConfig({ apiKeyEnv: "HOUSHIAR_API_KEY", key: "fixture-key" }), environment: {},
@@ -68,6 +70,25 @@ it("loads authenticated models before the Houshiar instance becomes available", 
 it("adopts a key entered in the generic form only when it was saved for Houshiar", () => {
   const cfg = instanceConfigs({ openaiCompat: { url: "https://api.houshiar-ai.ir/v1", key: "fixture-migrated-key" } });
   expect(cfg.houshiar.config).toMatchObject({ key: "fixture-migrated-key", apiKeyEnv: "HOUSHIAR_API_KEY" });
+});
+
+it.each([
+  [() => new UndiciResponse(JSON.stringify({ error: "fixture-secret" }), { status: 401 }), "HTTP 401"],
+  [() => new UndiciResponse("fixture-secret"), "invalid JSON"],
+  [() => new UndiciResponse(JSON.stringify({ data: [] })), "No compatible models"],
+  [() => { throw new Error("fixture-secret", { cause: { code: "ENOTFOUND" } }); }, "network error (ENOTFOUND)"],
+] as const)("logs a model catalog failure without recording credentials: %s", async (respond, detail) => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(houshiarTransport, "fetchHoushiarDirect").mockImplementation(async () => respond());
+  const instance = await OpenAICompatDriver.create({
+    instanceId: "houshiar", displayName: "Houshiar", enabled: true,
+    config: OpenAICompatDriver.decodeConfig({ apiKeyEnv: "HOUSHIAR_API_KEY", key: "fixture-secret" }), environment: {},
+  });
+  try {
+    expect(instance.models.options).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(detail));
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("fixture-secret");
+  } finally { await instance.dispose(); }
 });
 
 

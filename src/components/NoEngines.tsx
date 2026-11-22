@@ -1,17 +1,17 @@
-import { ArrowUpRight, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { KeyRound, Loader2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/state/store";
 import { EngineGroupLabel } from "@/components/EngineGroupLabel";
 import { EngineSetup, installCommandFor } from "@/components/EngineSetup";
+import { HoushiarSetup } from "@/components/HoushiarSetup";
 import { InstanceProviderMark } from "@/components/ProviderIcons";
 import { WindowDragStrip } from "@/components/DesktopCapabilities";
 import { splitEngineRail } from "@/lib/engine-rail";
 import { t } from "@/lib/i18n";
 import { productName } from "../lib/brand";
-import { openKeySettings } from "./keys/key-focus";
 
 export function NoEngines() {
-  const { state, dispatch, refreshInstances } = useStore();
+  const { state, refreshInstances } = useStore();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const [rechecking, setRechecking] = useState(false);
   const recheck = async () => {
@@ -78,19 +78,15 @@ export function NoEngines() {
                 {subscription.length > 0 && <EngineGroupLabel className="px-1">{t("engines.cloud")}</EngineGroupLabel>}
                 {subscription.map(card)}
                 {api.length > 0 && window.ogb?.remoteClient?.active !== true && (
-                  <button
-                    type="button"
-                    data-no-engines-api-keys
-                    onClick={() => dispatch(openKeySettings())}
-                    className="flex items-center gap-3 rounded-xl border border-hairline/40 bg-card p-3.5 text-left hover:bg-control/40"
-                  >
-                    <KeyRound size={16} className="shrink-0 text-ink-secondary" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-medium text-ink">{t("cloudSignIn.apiKey")}</span>
-                      <span className="block text-[12px] text-ink-secondary">{t("cloudSignIn.apiKeyHint")}</span>
-                    </span>
-                    <ArrowUpRight size={14} className="shrink-0 text-ink-secondary" />
-                  </button>
+                  <div className="rounded-xl border border-hairline/40 bg-card p-3.5">
+                    <div className="flex items-center gap-2 text-[14px] font-medium text-ink">
+                      <KeyRound size={16} className="shrink-0 text-ink-secondary" />
+                      {t("houshiar.title")}
+                    </div>
+                    <div className="mt-0.5">
+                      <HoushiarSetup />
+                    </div>
+                  </div>
                 )}
                 {custom.length > 0 && <EngineGroupLabel className="px-1 pt-1">{t("engines.local")}</EngineGroupLabel>}
                 {custom.map(card)}

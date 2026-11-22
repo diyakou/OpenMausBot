@@ -46,6 +46,7 @@ async function serve(extra: Partial<InstanceRouteDeps> = {}, auth: RequestAuth =
     threadBusy: () => false,
     botForThread: () => null,
     activeGroupTurnForBot: () => null,
+    providerHasLiveTurn: () => false,
     ...extra,
   } as unknown as InstanceRouteDeps;
   const routes = [createInstanceRoutes(deps)];
@@ -361,6 +362,26 @@ describe("looking for Ollama", () => {
 
 
 describe("Houshiar key setup", () => {
+  it("accepts a key with stale busy indicators and refuses it while a live turn owns the provider", async () => {
+    const bot = { id: "bot", busy: true, modelSelection: { instanceId: "houshiar", model: "auto" } };
+    let live = false;
+    let saved = 0;
+    const { base, call } = await serve({
+      cfg: {},
+      store: { bots: [bot], tasks: () => [{ threadId: "stale-thread" }] } as unknown as InstanceRouteDeps["store"],
+      threadBusy: () => true,
+      botForThread: () => bot,
+      providerHasLiveTurn: () => live,
+      persistProviderInstance: async () => { saved++; },
+      endpointModelsReadable: async () => true,
+    });
+    await call("PATCH", "/api/instances/houshiar", { apiKey: "fixture-key" });
+    live = true;
+    const blocked = await fetch(`${base}/api/instances/houshiar`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ apiKey: "different-fixture-key" }) });
+    expect(blocked.status).toBe(409);
+    expect(saved).toBe(1);
+  });
+
   it("saves its own key and probes only the fixed endpoint", async () => {
     const persisted: any[] = [];
     const detected: unknown[] = [];

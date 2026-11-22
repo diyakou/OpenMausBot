@@ -1,4 +1,4 @@
-import { fetchHoushiarDirect } from "../houshiar-fetch.ts";
+import { fetchHoushiarDirect, houshiarModelFetchFailure } from "../houshiar-fetch.ts";
 import { directConnectionEnvironment } from "../../electron/direct-network.mjs";
 // Transcript-replay driver for OpenRouter, Groq, Together, llama.cpp, and
 // other endpoints that speak the OpenAI chat-completions contract.
@@ -270,6 +270,8 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
       if (!apiKey) return;
       if (ollamaCandidate && await listOllama()) return;
       if (config.managedModels) return;
+      const houshiar = config.apiKeyEnv === "HOUSHIAR_API_KEY";
+      let responseReceived = false;
       try {
         // Only a server added as LM Studio: any other local server would get a request it never serves.
         const nativeUrl = config.catalog === "lmstudio" ? loopbackLmStudioV1Url(config.url) : null;
@@ -302,17 +304,26 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
             // Native LM Studio catalog unavailable; try OpenAI-compatible /models below.
           }
         }
-        const response = await (config.apiKeyEnv === "HOUSHIAR_API_KEY" ? fetchHoushiarDirect : fetch)(`${config.url}/models`, {
+        const response = await (houshiar ? fetchHoushiarDirect : fetch)(`${config.url}/models`, {
           headers: { authorization: `Bearer ${apiKey}` },
           signal: AbortSignal.timeout(8_000),
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (houshiar) console.warn(`[Houshiar models] GET /v1/models returned HTTP ${response.status}`);
+          return;
+        }
+        responseReceived = true;
         type Row = OpenRouterModelRow & Record<string, unknown> & { name?: unknown; created?: unknown; owned_by?: unknown };
-        const json = await response.json() as { data?: Row[] } | Row[];
-        let rows = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
-        if (config.apiKeyEnv === "HOUSHIAR_API_KEY") {
-          rows = rows.filter((row) => !Array.isArray(row.supported_endpoints)
-            || row.supported_endpoints.some((endpoint) => typeof endpoint === "string" && /(?:^|\/)messages\/?$/.test(endpoint)));
+        const json = await response.json() as { data?: Row[] } | Row[] | null;
+        const listed = Array.isArray(json) ? json : json?.data;
+        let rows = Array.isArray(listed) ? listed : [];
+        if (houshiar) {
+          if (!Array.isArray(listed)) {
+            console.warn("[Houshiar models] GET /v1/models did not return a model list");
+            return;
+          }
+          rows = rows.filter((row) => row && typeof row === "object" && (!Array.isArray(row.supported_endpoints)
+            || row.supported_endpoints.some((endpoint) => typeof endpoint === "string" && /(?:^|\/)messages\/?$/.test(endpoint))));
         }
         // OpenAI lists its catalog unordered and mixed with non-chat models.
         if (config.catalog === "openai") {
@@ -326,7 +337,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
           const rawId = typeof row.id === "string" ? row.id : "";
           const id = gemini ? geminiChatModelId(rawId) ?? "" : rawId;
           if (!id || seen.has(id) || isContextName(id)) continue;
-          if (config.apiKeyEnv === "HOUSHIAR_API_KEY" && !CLAUDE_MODEL_ID.test(id)) continue;
+          if (houshiar && !CLAUDE_MODEL_ID.test(id)) continue;
           seen.add(id);
           const label = typeof row.name === "string" && row.name.trim() ? row.name : id;
           const contextWindow = advertisedContextWindow(row);
@@ -335,10 +346,13 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
             label: openRouter ? freeLabel(label, row) : label,
             ...(contextWindow ? { contextWindow } : {}),
             ...(takesEffort(id, row) ? { variants: EFFORT_CHOICES } : {}),
-            ...(config.catalog === "openai" || config.apiKeyEnv === "HOUSHIAR_API_KEY" ? {} : { custom: true }),
+            ...(config.catalog === "openai" || houshiar ? {} : { custom: true }),
           });
         }
-        if (!options.length) return;
+        if (!options.length) {
+          if (houshiar) console.warn(`[Houshiar models] No compatible models in GET /v1/models (${listed?.length ?? 0} rows)`);
+          return;
+        }
         // llama.cpp serves its configured slot size, which can be below the model's training window; never autoload.
         for (const selected of rows.filter((row) => row.owned_by === "llamacpp" && typeof row.id === "string")) {
           try {
@@ -360,7 +374,10 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
           ordered.unshift({ id: config.model, label: config.model, custom: true });
         }
         catalog = { default: config.model ?? freeDefault(freeTools) ?? ordered[0].id, options: ordered };
-      } catch {}
+        if (houshiar) console.info(`[Houshiar models] Loaded ${options.length} models from GET /v1/models (${listed?.length ?? 0} rows)`);
+      } catch (error) {
+        if (houshiar) console.warn(`[Houshiar models] GET /v1/models: ${responseReceived && error instanceof SyntaxError ? "invalid JSON" : houshiarModelFetchFailure(error)}`);
+      }
     };
     const loading = apiKey ? Promise.all([
       config.model ? null : freeTier().then((free) => {
@@ -383,6 +400,7 @@ export const OpenAICompatDriver: ProviderDriver<OpenAICompatConfig> = {
     if (loading && isOllamaServer(config)) await Promise.race([loading, new Promise((done) => { setTimeout(done, OLLAMA_FIRST_LIST_MS).unref(); })]);
 
     if (config.apiKeyEnv === "HOUSHIAR_API_KEY") {
+      if (!apiKey) console.info("[Houshiar models] GET /v1/models skipped: no model API key configured");
       await loading;
       const models = catalog.options.length ? catalog.options.map((option) => option.id) : ["auto"];
       const claude = await ClaudeDriver.create({
