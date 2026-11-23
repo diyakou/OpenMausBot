@@ -18,10 +18,11 @@ const LISTED_FROM = 1000;
 const LINES: Record<string, number> = {
   "server/index.ts": 15436,
   "src/state/store.tsx": 3288,
-  "electron/main.mjs": 3160,
+  "electron/main.mjs": 3171,
   "server/store.ts": 2287,
   "src/components/Sidebar.tsx": 1687,
   "server/drivers/claude.ts": 2082,
+  "server/drivers/openai-chat.ts": 1001, // /v1/models now self-hosts the Houshiar direct fetch error mapping
   "server/drivers/acp/core.ts": 1658,
   "server/drivers/codex.ts": 1718,
   "server/routines.ts": 1553,

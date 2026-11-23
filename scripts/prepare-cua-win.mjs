@@ -22,6 +22,7 @@ const expectedVersion = String(sdkPackage.version);
 
 const release = {
   version: "0.45.4",
+  exeSha256: "f87066ca41e6f8437923a372a2d3556c6131463f19d51a4be510f7e7c13eb4c5",
   file: "cua-driver-rs-0.45.4-windows-x86_64-binary.zip",
   sha256: "949927b4cb0519c6fb1377878d67d79a8d6fae7bc56cbed17c7aa26448d82cb5",
 };
@@ -35,9 +36,13 @@ if (expectedVersion !== release.version) {
 async function binaryVersion(candidate) {
   if (!candidate || !existsSync(candidate)) return null;
   try {
-    const { stdout } = await run(candidate, ["--version"], { timeout: 5000, windowsHide: true });
-    return stdout.match(/cua-driver\s+([\d.]+)/)?.[1] ?? null;
-  } catch {
+    const { stdout, stderr } = await run(candidate, ["--version"], { timeout: 30_000, windowsHide: true });
+    const output = `${stdout}\n${stderr}`.trim();
+    const version = output.match(/cua-driver\s+([\d.]+)/)?.[1];
+    if (!version) console.warn(`${candidate} --version returned ${JSON.stringify(output)}`);
+    return version ?? null;
+  } catch (error) {
+    console.warn(`${candidate} --version failed (code=${error.code}, signal=${error.signal}): ${error.message}`);
     return null;
   }
 }
@@ -45,7 +50,8 @@ async function binaryVersion(candidate) {
 async function officialBinary() {
   const cache = join(root, "node_modules", ".cache", "openmausbot", `cua-driver-${release.version}-win`);
   const cachedBinary = join(cache, "cua-driver.exe");
-  if ((await binaryVersion(cachedBinary)) === expectedVersion) return cachedBinary;
+  const matchesRelease = async () => createHash("sha256").update(await readFile(cachedBinary)).digest("hex") === release.exeSha256;
+  if (existsSync(cachedBinary) && await matchesRelease()) return cachedBinary;
 
   await rm(cache, { recursive: true, force: true });
   await mkdir(cache, { recursive: true });
@@ -69,8 +75,8 @@ async function officialBinary() {
     timeout: 60_000,
     windowsHide: true,
   });
-  if ((await binaryVersion(cachedBinary)) !== expectedVersion) {
-    throw new Error(`downloaded CUA Driver does not report version ${expectedVersion}`);
+  if (!await matchesRelease()) {
+    throw new Error(`extracted cua-driver.exe checksum does not match release ${expectedVersion}`);
   }
   return cachedBinary;
 }
@@ -95,13 +101,13 @@ if (process.env.CUA_DRIVER_PATH) {
   if (!existsSync(candidate)) {
     binary = await officialBinary();
   } else {
+    if ((await binaryVersion(candidate)) !== expectedVersion) {
+      throw new Error(`CUA executable must match SDK ${expectedVersion}`);
+    }
     binary = candidate;
   }
 }
 
-if ((await binaryVersion(binary)) !== expectedVersion) {
-  throw new Error(`CUA executable must match SDK ${expectedVersion}`);
-}
 const details = await stat(binary);
 if (!details.isFile()) {
   throw new Error(`cua-driver is not a file: ${binary}`);
