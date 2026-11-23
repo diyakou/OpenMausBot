@@ -5,8 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "@/lib/i18n";
 import { ApiError } from "@/state/api";
 
-const fixture = vi.hoisted(() => ({ api: vi.fn(), dispatch: vi.fn() }));
-vi.mock("@/state/store", () => ({ api: fixture.api, useStore: () => ({ state: { instances: [] }, dispatch: fixture.dispatch }) }));
+const fixture = vi.hoisted(() => ({ api: vi.fn(), dispatch: vi.fn(), instances: [] as unknown[] }));
+vi.mock("@/state/store", () => ({ api: fixture.api, useStore: () => ({ state: { instances: fixture.instances }, dispatch: fixture.dispatch }) }));
 import { HoushiarSetup } from "./HoushiarSetup";
 
 let container: HTMLDivElement;
@@ -16,6 +16,7 @@ beforeEach(async () => {
   setLocale("en");
   fixture.api.mockReset();
   fixture.dispatch.mockReset();
+  fixture.instances = [];
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -68,6 +69,19 @@ it("reloads the catalog after saving without asking for the key again", async ()
   await act(async () => { container.querySelector<HTMLButtonElement>('button[type="button"]')!.click(); });
   expect(fixture.api).toHaveBeenLastCalledWith("/api/instances/houshiar/refresh-models", { method: "POST", body: "{}" });
   expect(container.querySelector("[role=status]")!.textContent).toBe("Houshiar connected");
+});
+
+it("shows the missing CLI reason instead of a connected status", async () => {
+  fixture.instances = [{
+    instanceId: "houshiar", driverKind: "claudeAgent", displayName: "Houshiar", access: "api",
+    snapshot: { state: "unavailable", reason: "`claude` CLI not found" },
+    models: { options: [{ id: "auto" }] },
+    install: { command: { win32: "npm install -g @anthropic-ai/claude-code" } },
+  }];
+  await act(async () => { root.render(createElement(HoushiarSetup)); });
+  expect(container.textContent).toContain("CLI not found");
+  expect(container.textContent).toContain("npm install -g @anthropic-ai/claude-code");
+  expect(container.querySelector("[role=status]")).toBeNull();
 });
 
 it("explains why an active turn blocks changing the key without exposing the server response", async () => {

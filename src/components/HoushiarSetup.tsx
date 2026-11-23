@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { ApiError, snapshotArrays } from "@/state/api";
 import { t } from "@/lib/i18n";
+import { EngineSetup } from "./EngineSetup";
 
 export function HoushiarSetup() {
   const { state, dispatch } = useStore();
@@ -13,6 +14,7 @@ export function HoushiarSetup() {
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const houshiar = state.instances.find((instance) => instance.instanceId === "houshiar");
   const connected = houshiar?.snapshot.state === "available" && houshiar.snapshot.authenticated !== false && houshiar.models.options.length > 0;
+  const missingCli = houshiar !== undefined && houshiar.snapshot.state !== "available";
   const applyCatalog = (result: { instances: InstanceInfo[] }) => {
     const { instances } = snapshotArrays(result, "instances");
     dispatch({ type: "instances", instances });
@@ -55,6 +57,7 @@ export function HoushiarSetup() {
     }
   };
   return <form className="flex w-full flex-col gap-3 text-start" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+    {missingCli && <EngineSetup instance={houshiar} intent="cloud" unframed />}
     <label htmlFor={keyId} className="text-[13px] text-ink">{t("houshiar.key")}</label>
     <input id={keyId} type="password" autoComplete="off" spellCheck={false} dir="ltr"
       value={key} onChange={(event) => setKey(event.target.value)} disabled={busy}
@@ -62,6 +65,6 @@ export function HoushiarSetup() {
     <button type="submit" disabled={busy || !key.trim()} className="ui-button ui-button-md ui-button-primary">{t(busy ? "houshiar.connecting" : "houshiar.connect")}</button>
     {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
     {(needsRefresh || houshiar?.modelsUnconfirmed) && <button type="button" disabled={busy} onClick={() => void refresh()} className="ui-button ui-button-md self-start rounded-full">{t("houshiar.refresh")}</button>}
-    {!error && (saved || connected) && <p role="status" className="text-[13px] text-success">{t("houshiar.connected")}</p>}
+    {!error && !missingCli && (saved || connected) && <p role="status" className="text-[13px] text-success">{t("houshiar.connected")}</p>}
   </form>;
 }
